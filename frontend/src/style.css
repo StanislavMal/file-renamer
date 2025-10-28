@@ -167,6 +167,7 @@ body::before {
     display: flex;
     align-items: center;
     padding: 0 12px;
+    cursor: move;
 }
 
 .titlebar-title {
@@ -213,11 +214,15 @@ body::before {
 /* ========== CONTAINER ========== */
 .container {
     flex: 1;
-    overflow-y: auto;
+    overflow: hidden;
     padding: 16px 20px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
+}
+
+.header {
+    flex-shrink: 0;
 }
 
 .header h1 {
@@ -237,6 +242,7 @@ body::before {
     display: flex;
     align-items: center;
     gap: 12px;
+    flex-shrink: 0;
 }
 
 .mode-buttons {
@@ -288,6 +294,7 @@ body::before {
     padding: 14px;
     border-radius: var(--radius-lg);
     border: 1px solid var(--border);
+    flex-shrink: 0;
 }
 
 .folder-row {
@@ -361,6 +368,7 @@ body::before {
 
 .input-with-button .input {
     flex: 1;
+    min-width: 0;
 }
 
 /* ========== BUTTONS ========== */
@@ -425,15 +433,21 @@ body::before {
 /* ========== CONTENT AREA ========== */
 .content-area {
     position: relative;
-    min-height: 350px;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .mode-content {
     display: none;
+    flex: 1;
+    min-height: 0;
 }
 
 .mode-content.active {
-    display: block;
+    display: flex;
+    flex-direction: column;
     animation: fadeIn 0.2s ease-out;
 }
 
@@ -452,12 +466,15 @@ body::before {
     gap: 8px;
     margin-bottom: 12px;
     align-items: center;
+    flex-shrink: 0;
 }
 
 .lists-container {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
+    flex: 1;
+    min-height: 0;
 }
 
 .file-list-panel {
@@ -468,12 +485,14 @@ body::before {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    min-height: 0;
 }
 
 .panel-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-shrink: 0;
 }
 
 .panel-header h3 {
@@ -493,8 +512,7 @@ body::before {
 
 .file-list {
     flex: 1;
-    min-height: 280px;
-    max-height: 350px;
+    min-height: 0;
     overflow-y: auto;
     background: var(--surface-secondary);
     border: 1px solid var(--border);
@@ -536,11 +554,6 @@ body::before {
 .file-item.dragging {
     opacity: 0.5;
     transform: scale(0.98);
-}
-
-.file-item.drag-over {
-    border-color: var(--accent);
-    background: var(--accent-light);
 }
 
 .file-item small {
@@ -588,6 +601,7 @@ body::before {
     border-radius: 2px;
     box-shadow: 0 0 8px var(--accent);
     animation: pulse 1s ease-in-out infinite;
+    pointer-events: none;
 }
 
 @keyframes pulse {
@@ -606,6 +620,8 @@ body::before {
     display: grid;
     grid-template-columns: 380px 1fr;
     gap: 12px;
+    flex: 1;
+    min-height: 0;
 }
 
 .batch-form {
@@ -616,6 +632,7 @@ body::before {
     display: flex;
     flex-direction: column;
     gap: 14px;
+    min-height: 0;
 }
 
 .batch-files-panel {
@@ -626,12 +643,14 @@ body::before {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    min-height: 0;
 }
 
 .form-section {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    flex-shrink: 0;
 }
 
 .form-section h4 {
@@ -648,9 +667,15 @@ body::before {
     gap: 8px;
 }
 
+.input-group-compact .input {
+    flex: 1;
+    min-width: 0;
+}
+
 .arrow {
     color: var(--text-tertiary);
     font-size: 14px;
+    flex-shrink: 0;
 }
 
 .checkbox-label {
@@ -698,6 +723,7 @@ body::before {
     padding-top: 8px;
     border-top: 1px solid var(--border);
     margin-top: auto;
+    flex-shrink: 0;
 }
 
 /* ========== PREVIEW ========== */
@@ -706,6 +732,10 @@ body::before {
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     padding: 14px;
+    flex-shrink: 0;
+    max-height: 200px;
+    display: flex;
+    flex-direction: column;
 }
 
 .preview-header {
@@ -713,6 +743,7 @@ body::before {
     align-items: center;
     justify-content: space-between;
     margin-bottom: 10px;
+    flex-shrink: 0;
 }
 
 .preview-header h3 {
@@ -721,7 +752,7 @@ body::before {
 }
 
 .preview-content {
-    max-height: 240px;
+    flex: 1;
     overflow-y: auto;
     padding: 12px;
     background: var(--surface-secondary);
@@ -753,15 +784,10 @@ body::before {
 .theme-switcher {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding-top: 12px;
+    justify-content: flex-end;
+    padding-top: 8px;
     border-top: 1px solid var(--border);
-}
-
-.theme-switcher label {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-secondary);
+    flex-shrink: 0;
 }
 
 .theme-buttons {

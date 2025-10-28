@@ -26,7 +26,8 @@ const state = {
     lastPlan: null,
     draggedItems: null, // Массив индексов перетаскиваемых элементов
     draggedList: null,
-    dropIndicator: null
+    dropIndicator: null,
+    autoScrollInterval: null
 };
 
 // ========== THEME ==========
@@ -237,7 +238,6 @@ function createFileItem(file, index, listType) {
     item.addEventListener('dragend', (e) => handleDragEnd(e));
     item.addEventListener('dragover', (e) => handleDragOver(e, index, listType));
     item.addEventListener('drop', (e) => handleDrop(e, index, listType));
-    item.addEventListener('dragleave', (e) => handleDragLeave(e));
     
     return item;
 }
@@ -262,7 +262,6 @@ function updateCounts() {
 function handleFileClick(e, index, listType) {
     const selectedSet = listType === 'target' ? state.selectedTarget : state.selectedSource;
     const lastClicked = listType === 'target' ? state.lastClickedTarget : state.lastClickedSource;
-    const fileList = listType === 'target' || listType === 'batch' ? state.visibleTargetFiles : state.visibleSourceFiles;
     
     if (e.shiftKey && lastClicked !== null) {
         // Shift-выделение диапазона
@@ -280,9 +279,15 @@ function handleFileClick(e, index, listType) {
             selectedSet.add(index);
         }
     } else {
-        // Обычный клик - выделение одного элемента
-        selectedSet.clear();
-        selectedSet.add(index);
+        // Обычный клик
+        if (selectedSet.size === 1 && selectedSet.has(index)) {
+            // Если выделен только этот элемент - снимаем выделение
+            selectedSet.clear();
+        } else {
+            // Иначе - выделяем только этот элемент
+            selectedSet.clear();
+            selectedSet.add(index);
+        }
     }
     
     // Обновляем последний кликнутый
@@ -337,6 +342,7 @@ function handleDragStart(e, index, listType) {
 function handleDragEnd(e) {
     e.currentTarget.classList.remove('dragging');
     removeDropIndicator();
+    stopAutoScroll();
     
     document.querySelectorAll('.file-item').forEach(item => {
         item.classList.remove('drag-over');
@@ -345,6 +351,7 @@ function handleDragEnd(e) {
 
 function handleDragOver(e, targetIndex, targetListType) {
     e.preventDefault();
+    e.stopPropagation();
     
     // Можно перетаскивать только внутри одного списка
     if (state.draggedList !== targetListType) {
@@ -355,18 +362,20 @@ function handleDragOver(e, targetIndex, targetListType) {
     
     // Показываем индикатор между элементами
     showDropIndicator(e, targetIndex, targetListType);
-}
-
-function handleDragLeave(e) {
-    if (!e.currentTarget.contains(e.relatedTarget)) {
-        e.currentTarget.classList.remove('drag-over');
+    
+    // Запускаем автоскролл если нужно
+    const listElement = e.currentTarget.closest('.file-list');
+    if (listElement) {
+        handleAutoScroll(e, listElement);
     }
 }
 
 function handleDrop(e, targetIndex, targetListType) {
     e.preventDefault();
+    e.stopPropagation();
     e.currentTarget.classList.remove('drag-over');
     removeDropIndicator();
+    stopAutoScroll();
     
     if (state.draggedList !== targetListType || !state.draggedItems || state.draggedItems.length === 0) {
         return;
@@ -451,6 +460,38 @@ function removeDropIndicator() {
     if (state.dropIndicator) {
         state.dropIndicator.remove();
         state.dropIndicator = null;
+    }
+}
+
+// ========== AUTO SCROLL ==========
+function handleAutoScroll(e, listElement) {
+    const rect = listElement.getBoundingClientRect();
+    const mouseY = e.clientY;
+    const threshold = 50; // Зона активации автоскролла
+    const scrollSpeed = 10; // Скорость скролла
+    
+    const distanceFromTop = mouseY - rect.top;
+    const distanceFromBottom = rect.bottom - mouseY;
+    
+    stopAutoScroll();
+    
+    if (distanceFromTop < threshold && distanceFromTop >= 0) {
+        // Скролл вверх
+        state.autoScrollInterval = setInterval(() => {
+            listElement.scrollTop -= scrollSpeed;
+        }, 20);
+    } else if (distanceFromBottom < threshold && distanceFromBottom >= 0) {
+        // Скролл вниз
+        state.autoScrollInterval = setInterval(() => {
+            listElement.scrollTop += scrollSpeed;
+        }, 20);
+    }
+}
+
+function stopAutoScroll() {
+    if (state.autoScrollInterval) {
+        clearInterval(state.autoScrollInterval);
+        state.autoScrollInterval = null;
     }
 }
 

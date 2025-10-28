@@ -5,6 +5,8 @@ export namespace main {
 	    replace: string;
 	    prefix: string;
 	    suffix: string;
+	    removeFromStart: number;
+	    removeFromEnd: number;
 	    numbering: boolean;
 	    numberPosition: string;
 	    numberFormat: string;
@@ -20,6 +22,8 @@ export namespace main {
 	        this.replace = source["replace"];
 	        this.prefix = source["prefix"];
 	        this.suffix = source["suffix"];
+	        this.removeFromStart = source["removeFromStart"];
+	        this.removeFromEnd = source["removeFromEnd"];
 	        this.numbering = source["numbering"];
 	        this.numberPosition = source["numberPosition"];
 	        this.numberFormat = source["numberFormat"];

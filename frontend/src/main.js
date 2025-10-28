@@ -198,16 +198,27 @@ function createFileItem(file, index, listType) {
         }
     }
     
+    // Line number
+    const lineNumber = document.createElement('span');
+    lineNumber.className = 'file-item-number';
+    lineNumber.textContent = (index + 1).toString().padStart(3, ' ');
+    item.appendChild(lineNumber);
+    
+    // File content wrapper
+    const contentWrapper = document.createElement('div');
+    contentWrapper.className = 'file-item-content';
+    
     // File name
     const nameSpan = document.createElement('span');
+    nameSpan.className = 'file-item-name';
     nameSpan.textContent = file.name;
-    item.appendChild(nameSpan);
+    contentWrapper.appendChild(nameSpan);
     
     // Additional info
     if (isPaired && state.mode === 'pairing' && listType === 'target') {
         const info = document.createElement('small');
         info.textContent = `→ ${computeNewName(file.name, state.pairs[file.name])}`;
-        item.appendChild(info);
+        contentWrapper.appendChild(info);
     }
     
     if (listType === 'source') {
@@ -215,9 +226,11 @@ function createFileItem(file, index, listType) {
         if (pairedTarget) {
             const info = document.createElement('small');
             info.textContent = `← ${pairedTarget}`;
-            item.appendChild(info);
+            contentWrapper.appendChild(info);
         }
     }
+    
+    item.appendChild(contentWrapper);
     
     // Remove button
     const removeBtn = document.createElement('button');
@@ -639,13 +652,16 @@ async function updatePreview() {
                 replace: document.getElementById('batch-replace').value,
                 prefix: document.getElementById('batch-prefix').value,
                 suffix: document.getElementById('batch-suffix').value,
+                removeFromStart: parseInt(document.getElementById('batch-remove-start').value) || 0,
+                removeFromEnd: parseInt(document.getElementById('batch-remove-end').value) || 0,
                 numbering: numberingEnabled,
                 numberPosition: numberingEnabled ? document.getElementById('batch-number-position').value : '',
                 numberFormat: numberingEnabled ? document.getElementById('batch-number-format').value : '',
                 numberStart: numberingEnabled ? parseInt(document.getElementById('batch-number-start').value) || 1 : 0
             };
             
-            if (!state.targetDir || (!params.find && !params.prefix && !params.suffix && !params.numbering)) {
+            if (!state.targetDir || (!params.find && !params.prefix && !params.suffix && 
+                !params.removeFromStart && !params.removeFromEnd && !params.numbering)) {
                 previewContent.innerHTML = '<p class="text-muted">Задайте параметры обработки</p>';
                 previewCount.textContent = '';
                 if (batchRenameBtn) batchRenameBtn.disabled = true;
@@ -755,6 +771,8 @@ function resetState() {
         document.getElementById('batch-replace').value = '';
         document.getElementById('batch-prefix').value = '';
         document.getElementById('batch-suffix').value = '';
+        document.getElementById('batch-remove-start').value = '0';
+        document.getElementById('batch-remove-end').value = '0';
         document.getElementById('batch-numbering').checked = false;
         document.getElementById('numbering-options').classList.remove('active');
         document.getElementById('batch-number-start').value = '1';
@@ -817,7 +835,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('map-in-order-btn').addEventListener('click', mapInOrder);
     
     // Batch inputs
-    ['batch-find', 'batch-replace', 'batch-prefix', 'batch-suffix'].forEach(id => {
+    ['batch-find', 'batch-replace', 'batch-prefix', 'batch-suffix', 
+     'batch-remove-start', 'batch-remove-end'].forEach(id => {
         document.getElementById(id).addEventListener('input', updatePreview);
     });
     

@@ -199,7 +199,8 @@ func (a *App) BuildPlanFromBatch(targetDir string, files []string, params BatchP
 		Conflicts:  []Conflict{},
 	}
 
-	if targetDir == "" || (params.Find == "" && params.Prefix == "" && params.Suffix == "" && !params.Numbering) {
+	if targetDir == "" || (params.Find == "" && params.Prefix == "" && params.Suffix == "" &&
+		params.RemoveFromStart == 0 && params.RemoveFromEnd == 0 && !params.Numbering) {
 		return result
 	}
 
@@ -240,10 +241,29 @@ func (a *App) BuildPlanFromBatch(targetDir string, files []string, params BatchP
 		ext := filepath.Ext(newName)
 		base := strings.TrimSuffix(newName, ext)
 
+		// Удаляем символы с начала
+		if params.RemoveFromStart > 0 {
+			runes := []rune(base)
+			if params.RemoveFromStart < len(runes) {
+				base = string(runes[params.RemoveFromStart:])
+			} else {
+				base = ""
+			}
+		}
+
+		// Удаляем символы с конца
+		if params.RemoveFromEnd > 0 {
+			runes := []rune(base)
+			if params.RemoveFromEnd < len(runes) {
+				base = string(runes[:len(runes)-params.RemoveFromEnd])
+			} else {
+				base = ""
+			}
+		}
+
 		// Добавляем нумерацию
-		var numberStr string
 		if params.Numbering {
-			numberStr = fmt.Sprintf("%0*d", numberPadding, currentNumber)
+			numberStr := fmt.Sprintf("%0*d", numberPadding, currentNumber)
 			currentNumber++
 
 			if params.NumberPosition == "prefix" {
@@ -259,6 +279,11 @@ func (a *App) BuildPlanFromBatch(targetDir string, files []string, params BatchP
 
 		if newName == fileName {
 			continue // Имя не изменилось
+		}
+
+		// Проверка на пустое имя
+		if base == "" {
+			continue
 		}
 
 		oldPath := filepath.Join(targetDir, fileName)

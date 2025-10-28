@@ -167,7 +167,6 @@ body::before {
     display: flex;
     align-items: center;
     padding: 0 12px;
-    -webkit-app-region: drag;
 }
 
 .titlebar-title {
@@ -177,7 +176,6 @@ body::before {
     font-size: 12px;
     font-weight: 600;
     color: var(--text-secondary);
-    pointer-events: none;
 }
 
 .titlebar-icon {
@@ -187,7 +185,6 @@ body::before {
 .titlebar-controls {
     display: flex;
     height: 100%;
-    -webkit-app-region: no-drag;
 }
 
 .titlebar-button {
@@ -378,6 +375,7 @@ body::before {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    max-width: 120px;
 }
 
 .input-hint {

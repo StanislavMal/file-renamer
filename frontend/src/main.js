@@ -19,11 +19,14 @@ const state = {
     visibleTargetFiles: [],
     visibleSourceFiles: [],
     pairs: {}, // targetName -> sourceName
-    selectedTarget: null,
-    selectedSource: null,
+    selectedTarget: new Set(), // Множественное выделение
+    selectedSource: new Set(),
+    lastClickedTarget: null, // Для Shift-выделения
+    lastClickedSource: null,
     lastPlan: null,
-    draggedItem: null,
-    draggedList: null
+    draggedItems: null, // Массив индексов перетаскиваемых элементов
+    draggedList: null,
+    dropIndicator: null
 };
 
 // ========== THEME ==========
@@ -175,9 +178,8 @@ function createFileItem(file, index, listType) {
     item.draggable = true;
     
     // Selection state
-    if (listType === 'target' && state.selectedTarget === index) {
-        item.classList.add('selected');
-    } else if (listType === 'source' && state.selectedSource === index) {
+    const selectedSet = listType === 'target' ? state.selectedTarget : state.selectedSource;
+    if (selectedSet.has(index)) {
         item.classList.add('selected');
     }
     
@@ -228,12 +230,12 @@ function createFileItem(file, index, listType) {
     item.appendChild(removeBtn);
     
     // Events
-    item.addEventListener('click', () => handleFileClick(index, listType));
+    item.addEventListener('click', (e) => handleFileClick(e, index, listType));
     
     // Drag events
     item.addEventListener('dragstart', (e) => handleDragStart(e, index, listType));
     item.addEventListener('dragend', (e) => handleDragEnd(e));
-    item.addEventListener('dragover', (e) => handleDragOver(e));
+    item.addEventListener('dragover', (e) => handleDragOver(e, index, listType));
     item.addEventListener('drop', (e) => handleDrop(e, index, listType));
     item.addEventListener('dragleave', (e) => handleDragLeave(e));
     
@@ -256,60 +258,159 @@ function updateCounts() {
     }
 }
 
+// ========== SELECTION ==========
+function handleFileClick(e, index, listType) {
+    const selectedSet = listType === 'target' ? state.selectedTarget : state.selectedSource;
+    const lastClicked = listType === 'target' ? state.lastClickedTarget : state.lastClickedSource;
+    const fileList = listType === 'target' || listType === 'batch' ? state.visibleTargetFiles : state.visibleSourceFiles;
+    
+    if (e.shiftKey && lastClicked !== null) {
+        // Shift-выделение диапазона
+        const start = Math.min(lastClicked, index);
+        const end = Math.max(lastClicked, index);
+        
+        for (let i = start; i <= end; i++) {
+            selectedSet.add(i);
+        }
+    } else if (e.ctrlKey || e.metaKey) {
+        // Ctrl/Cmd - переключение выделения
+        if (selectedSet.has(index)) {
+            selectedSet.delete(index);
+        } else {
+            selectedSet.add(index);
+        }
+    } else {
+        // Обычный клик - выделение одного элемента
+        selectedSet.clear();
+        selectedSet.add(index);
+    }
+    
+    // Обновляем последний кликнутый
+    if (listType === 'target') {
+        state.lastClickedTarget = index;
+    } else {
+        state.lastClickedSource = index;
+    }
+    
+    // Пробуем создать пару если выделен один target и один source
+    if (state.mode === 'pairing') {
+        tryCreatePair();
+    }
+    
+    // Перерисовываем списки
+    if (listType === 'target') {
+        renderTargetList();
+    } else if (listType === 'source') {
+        renderSourceList();
+    } else if (listType === 'batch') {
+        renderBatchList();
+    }
+}
+
 // ========== DRAG AND DROP ==========
 function handleDragStart(e, index, listType) {
-    state.draggedItem = index;
+    const selectedSet = listType === 'target' ? state.selectedTarget : state.selectedSource;
+    
+    // Если кликнутый элемент не выделен, выделяем только его
+    if (!selectedSet.has(index)) {
+        selectedSet.clear();
+        selectedSet.add(index);
+        
+        if (listType === 'target') {
+            renderTargetList();
+        } else if (listType === 'source') {
+            renderSourceList();
+        } else if (listType === 'batch') {
+            renderBatchList();
+        }
+    }
+    
+    // Перетаскиваем все выделенные элементы
+    state.draggedItems = Array.from(selectedSet).sort((a, b) => a - b);
     state.draggedList = listType;
+    
     e.currentTarget.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', ''); // Для Firefox
 }
 
 function handleDragEnd(e) {
     e.currentTarget.classList.remove('dragging');
+    removeDropIndicator();
+    
     document.querySelectorAll('.file-item').forEach(item => {
         item.classList.remove('drag-over');
     });
 }
 
-function handleDragOver(e) {
+function handleDragOver(e, targetIndex, targetListType) {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    const item = e.currentTarget;
-    if (!item.classList.contains('dragging')) {
-        item.classList.add('drag-over');
+    
+    // Можно перетаскивать только внутри одного списка
+    if (state.draggedList !== targetListType) {
+        return;
     }
+    
+    e.dataTransfer.dropEffect = 'move';
+    
+    // Показываем индикатор между элементами
+    showDropIndicator(e, targetIndex, targetListType);
 }
 
 function handleDragLeave(e) {
-    e.currentTarget.classList.remove('drag-over');
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+        e.currentTarget.classList.remove('drag-over');
+    }
 }
 
 function handleDrop(e, targetIndex, targetListType) {
     e.preventDefault();
     e.currentTarget.classList.remove('drag-over');
+    removeDropIndicator();
     
-    if (state.draggedList !== targetListType || state.draggedItem === targetIndex) {
+    if (state.draggedList !== targetListType || !state.draggedItems || state.draggedItems.length === 0) {
         return;
     }
     
-    const draggedIndex = state.draggedItem;
     let list;
-    
     if (targetListType === 'target' || targetListType === 'batch') {
         list = state.visibleTargetFiles;
     } else if (targetListType === 'source') {
         list = state.visibleSourceFiles;
     }
     
-    // Reorder
-    const draggedFile = list[draggedIndex];
-    list.splice(draggedIndex, 1);
+    // Определяем позицию для вставки
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouseY = e.clientY;
+    const itemMiddle = rect.top + rect.height / 2;
+    const insertBefore = mouseY < itemMiddle;
     
-    // Adjust target index if needed
-    const newIndex = draggedIndex < targetIndex ? targetIndex - 1 : targetIndex;
-    list.splice(newIndex, 0, draggedFile);
+    let insertIndex = insertBefore ? targetIndex : targetIndex + 1;
     
-    // Re-render
+    // Извлекаем перетаскиваемые элементы
+    const draggedFiles = state.draggedItems.map(idx => list[idx]);
+    
+    // Удаляем их из исходных позиций (в обратном порядке, чтобы индексы не сбивались)
+    const sortedIndices = [...state.draggedItems].sort((a, b) => b - a);
+    for (const idx of sortedIndices) {
+        list.splice(idx, 1);
+        // Корректируем insertIndex если удаляем элементы перед местом вставки
+        if (idx < insertIndex) {
+            insertIndex--;
+        }
+    }
+    
+    // Вставляем в новую позицию
+    list.splice(insertIndex, 0, ...draggedFiles);
+    
+    // Обновляем выделение на новые индексы
+    const selectedSet = targetListType === 'target' ? state.selectedTarget : state.selectedSource;
+    selectedSet.clear();
+    for (let i = 0; i < draggedFiles.length; i++) {
+        selectedSet.add(insertIndex + i);
+    }
+    
+    // Перерисовываем
     if (targetListType === 'target') {
         renderTargetList();
     } else if (targetListType === 'source') {
@@ -321,34 +422,49 @@ function handleDrop(e, targetIndex, targetListType) {
     updatePreview();
 }
 
-// ========== PAIRING MODE ==========
-function handleFileClick(index, listType) {
-    if (listType === 'target') {
-        // Toggle selection
-        if (state.selectedTarget === index) {
-            state.selectedTarget = null;
+function showDropIndicator(e, targetIndex, listType) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouseY = e.clientY;
+    const itemMiddle = rect.top + rect.height / 2;
+    const insertBefore = mouseY < itemMiddle;
+    
+    removeDropIndicator();
+    
+    const indicator = document.createElement('div');
+    indicator.className = 'drop-indicator';
+    indicator.id = 'drop-indicator';
+    
+    if (insertBefore) {
+        e.currentTarget.parentNode.insertBefore(indicator, e.currentTarget);
+    } else {
+        if (e.currentTarget.nextSibling) {
+            e.currentTarget.parentNode.insertBefore(indicator, e.currentTarget.nextSibling);
         } else {
-            state.selectedTarget = index;
+            e.currentTarget.parentNode.appendChild(indicator);
         }
-        renderTargetList();
-        tryCreatePair();
-    } else if (listType === 'source') {
-        // Toggle selection
-        if (state.selectedSource === index) {
-            state.selectedSource = null;
-        } else {
-            state.selectedSource = index;
-        }
-        renderSourceList();
-        tryCreatePair();
+    }
+    
+    state.dropIndicator = indicator;
+}
+
+function removeDropIndicator() {
+    if (state.dropIndicator) {
+        state.dropIndicator.remove();
+        state.dropIndicator = null;
     }
 }
 
+// ========== PAIRING MODE ==========
 function tryCreatePair() {
-    if (state.selectedTarget === null || state.selectedSource === null) return;
+    if (state.selectedTarget.size !== 1 || state.selectedSource.size !== 1) {
+        return;
+    }
     
-    const targetFile = state.visibleTargetFiles[state.selectedTarget];
-    const sourceFile = state.visibleSourceFiles[state.selectedSource];
+    const targetIndex = Array.from(state.selectedTarget)[0];
+    const sourceIndex = Array.from(state.selectedSource)[0];
+    
+    const targetFile = state.visibleTargetFiles[targetIndex];
+    const sourceFile = state.visibleSourceFiles[sourceIndex];
     
     if (!targetFile || !sourceFile) return;
     
@@ -365,8 +481,10 @@ function tryCreatePair() {
     // Create new pair
     state.pairs[targetFile.name] = sourceFile.name;
     
-    state.selectedTarget = null;
-    state.selectedSource = null;
+    state.selectedTarget.clear();
+    state.selectedSource.clear();
+    state.lastClickedTarget = null;
+    state.lastClickedSource = null;
     
     renderTargetList();
     renderSourceList();
@@ -378,6 +496,19 @@ function excludeFile(index, listType) {
         const file = state.visibleTargetFiles[index];
         delete state.pairs[file.name];
         state.visibleTargetFiles.splice(index, 1);
+        state.selectedTarget.delete(index);
+        
+        // Обновляем индексы в selectedTarget
+        const newSelected = new Set();
+        state.selectedTarget.forEach(idx => {
+            if (idx > index) {
+                newSelected.add(idx - 1);
+            } else if (idx < index) {
+                newSelected.add(idx);
+            }
+        });
+        state.selectedTarget = newSelected;
+        
         renderTargetList();
         if (state.mode === 'batch') {
             renderBatchList();
@@ -393,6 +524,19 @@ function excludeFile(index, listType) {
         });
         
         state.visibleSourceFiles.splice(index, 1);
+        state.selectedSource.delete(index);
+        
+        // Обновляем индексы в selectedSource
+        const newSelected = new Set();
+        state.selectedSource.forEach(idx => {
+            if (idx > index) {
+                newSelected.add(idx - 1);
+            } else if (idx < index) {
+                newSelected.add(idx);
+            }
+        });
+        state.selectedSource = newSelected;
+        
         renderSourceList();
     }
     
@@ -427,41 +571,12 @@ function mapInOrder() {
     updatePreview();
 }
 
-function unpairSelected() {
-    let removed = false;
-    
-    if (state.selectedTarget !== null) {
-        const file = state.visibleTargetFiles[state.selectedTarget];
-        if (state.pairs[file.name]) {
-            delete state.pairs[file.name];
-            removed = true;
-        }
-    }
-    
-    if (!removed && state.selectedSource !== null) {
-        const file = state.visibleSourceFiles[state.selectedSource];
-        Object.keys(state.pairs).forEach(key => {
-            if (state.pairs[key] === file.name) {
-                delete state.pairs[key];
-                removed = true;
-            }
-        });
-    }
-    
-    if (removed) {
-        state.selectedTarget = null;
-        state.selectedSource = null;
-        renderTargetList();
-        renderSourceList();
-        updatePreview();
-    }
-}
-
 // ========== PREVIEW ==========
 async function updatePreview() {
     const previewContent = document.getElementById('preview-content');
     const previewCount = document.getElementById('preview-count');
     const renameBtn = document.getElementById('rename-btn');
+    const batchRenameBtn = document.getElementById('batch-rename-btn');
     
     try {
         let result;
@@ -470,7 +585,7 @@ async function updatePreview() {
             if (!state.targetDir || Object.keys(state.pairs).length === 0) {
                 previewContent.innerHTML = '<p class="text-muted">Создайте пары для предпросмотра</p>';
                 previewCount.textContent = '';
-                renameBtn.disabled = true;
+                if (renameBtn) renameBtn.disabled = true;
                 return;
             }
             
@@ -492,7 +607,7 @@ async function updatePreview() {
             if (!state.targetDir || (!params.find && !params.prefix && !params.suffix && !params.numbering)) {
                 previewContent.innerHTML = '<p class="text-muted">Задайте параметры обработки</p>';
                 previewCount.textContent = '';
-                renameBtn.disabled = true;
+                if (batchRenameBtn) batchRenameBtn.disabled = true;
                 return;
             }
             
@@ -527,13 +642,17 @@ async function updatePreview() {
         }
         
         previewContent.innerHTML = html;
-        renameBtn.disabled = !result.operations || result.operations.length === 0;
+        
+        const hasOperations = result.operations && result.operations.length > 0;
+        if (renameBtn) renameBtn.disabled = !hasOperations;
+        if (batchRenameBtn) batchRenameBtn.disabled = !hasOperations;
         
     } catch (error) {
         console.error('Ошибка построения плана:', error);
         previewContent.innerHTML = `<p style="color: var(--error);">Ошибка: ${error}</p>`;
         previewCount.textContent = '';
-        renameBtn.disabled = true;
+        if (renameBtn) renameBtn.disabled = true;
+        if (batchRenameBtn) batchRenameBtn.disabled = true;
     }
 }
 
@@ -574,8 +693,10 @@ async function executeRename() {
 // ========== RESET ==========
 function resetState() {
     state.pairs = {};
-    state.selectedTarget = null;
-    state.selectedSource = null;
+    state.selectedTarget.clear();
+    state.selectedSource.clear();
+    state.lastClickedTarget = null;
+    state.lastClickedSource = null;
     state.visibleTargetFiles = [...state.targetFiles];
     state.visibleSourceFiles = [...state.sourceFiles];
     state.lastPlan = null;
@@ -653,7 +774,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Pairing controls
     document.getElementById('map-in-order-btn').addEventListener('click', mapInOrder);
-    document.getElementById('unpair-btn').addEventListener('click', unpairSelected);
     
     // Batch inputs
     ['batch-find', 'batch-replace', 'batch-prefix', 'batch-suffix'].forEach(id => {
@@ -680,4 +800,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Actions
     document.getElementById('reset-btn').addEventListener('click', resetState);
     document.getElementById('rename-btn').addEventListener('click', executeRename);
+    
+    // Batch actions
+    const batchResetBtn = document.getElementById('batch-reset-btn');
+    const batchRenameBtn = document.getElementById('batch-rename-btn');
+    if (batchResetBtn) batchResetBtn.addEventListener('click', resetState);
+    if (batchRenameBtn) batchRenameBtn.addEventListener('click', executeRename);
 });

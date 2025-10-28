@@ -87,8 +87,10 @@
                     <button id="map-in-order-btn" class="btn btn-compact" type="button">
                         <span>⚡</span> Сопоставить по порядку
                     </button>
-                    <button id="unpair-btn" class="btn btn-compact" type="button">
-                        <span>✖</span> Удалить пару
+                    <div style="flex: 1;"></div>
+                    <button id="reset-btn" class="btn btn-compact" type="button">Сброс</button>
+                    <button id="rename-btn" class="btn btn-primary btn-compact" type="button" disabled>
+                        <span>✓</span> Переименовать
                     </button>
                 </div>
 
@@ -158,6 +160,13 @@
                                 </div>
                             </div>
                         </div>
+
+                        <div class="batch-actions">
+                            <button id="batch-reset-btn" class="btn btn-compact" type="button">Сброс</button>
+                            <button id="batch-rename-btn" class="btn btn-primary btn-compact" type="button" disabled>
+                                <span>✓</span> Переименовать
+                            </button>
+                        </div>
                     </div>
 
                     <div class="batch-files-panel">
@@ -182,14 +191,6 @@
             <div id="preview-content" class="preview-content">
                 <p class="text-muted">Выберите файлы для переименования</p>
             </div>
-        </div>
-
-        <!-- Действия -->
-        <div class="actions">
-            <button id="reset-btn" class="btn" type="button">Сброс</button>
-            <button id="rename-btn" class="btn btn-primary" type="button" disabled>
-                <span>✓</span> Переименовать
-            </button>
         </div>
 
         <!-- Theme switcher -->

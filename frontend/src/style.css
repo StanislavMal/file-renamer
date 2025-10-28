@@ -451,6 +451,7 @@ body::before {
     display: flex;
     gap: 8px;
     margin-bottom: 12px;
+    align-items: center;
 }
 
 .lists-container {
@@ -579,6 +580,27 @@ body::before {
     transform: translateY(-50%) scale(1.1);
 }
 
+/* ========== DROP INDICATOR ========== */
+.drop-indicator {
+    height: 3px;
+    background: var(--accent);
+    margin: 2px 6px;
+    border-radius: 2px;
+    box-shadow: 0 0 8px var(--accent);
+    animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 0.8;
+        box-shadow: 0 0 8px var(--accent);
+    }
+    50% {
+        opacity: 1;
+        box-shadow: 0 0 12px var(--accent);
+    }
+}
+
 /* ========== BATCH MODE ========== */
 .batch-layout {
     display: grid;
@@ -669,6 +691,15 @@ body::before {
     display: flex;
 }
 
+.batch-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    margin-top: auto;
+}
+
 /* ========== PREVIEW ========== */
 .preview-section {
     background: var(--surface);
@@ -716,13 +747,6 @@ body::before {
 .text-muted {
     color: var(--text-muted);
     font-style: italic;
-}
-
-/* ========== ACTIONS ========== */
-.actions {
-    display: flex;
-    gap: 10px;
-    justify-content: flex-end;
 }
 
 /* ========== THEME SWITCHER ========== */

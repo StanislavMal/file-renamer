@@ -276,7 +276,7 @@ function createFileItem(file, index, listType) {
     item.dataset.listType = listType;
     item.draggable = true;
     
-    const selectedSet = listType === 'target' ? state.selectedTarget : state.selectedSource;
+    const selectedSet = listType === 'target' || listType === 'batch' ? state.selectedTarget : state.selectedSource;
     if (selectedSet.has(index)) {
         item.classList.add('selected');
     }
@@ -323,10 +323,9 @@ function createFileItem(file, index, listType) {
     
     item.appendChild(contentWrapper);
     
-    // Измененная кнопка исключения с минусом
     const removeBtn = document.createElement('button');
     removeBtn.className = 'file-item-remove';
-    removeBtn.innerHTML = '−'; // Минус вместо крестика
+    removeBtn.innerHTML = '−';
     removeBtn.title = 'Исключить из обработки';
     removeBtn.onclick = (e) => {
         e.stopPropagation();
@@ -361,8 +360,8 @@ function updateCounts() {
 
 // ========== SELECTION ==========
 function handleFileClick(e, index, listType) {
-    const selectedSet = listType === 'target' ? state.selectedTarget : state.selectedSource;
-    const lastClicked = listType === 'target' ? state.lastClickedTarget : state.lastClickedSource;
+    const selectedSet = listType === 'target' || listType === 'batch' ? state.selectedTarget : state.selectedSource;
+    const lastClicked = listType === 'target' || listType === 'batch' ? state.lastClickedTarget : state.lastClickedSource;
     
     if (e.shiftKey && lastClicked !== null) {
         const start = Math.min(lastClicked, index);
@@ -386,13 +385,13 @@ function handleFileClick(e, index, listType) {
         }
     }
     
-    if (listType === 'target') {
+    if (listType === 'target' || listType === 'batch') {
         state.lastClickedTarget = index;
     } else {
         state.lastClickedSource = index;
     }
     
-    if (state.mode === 'pairing') {
+    if (state.mode === 'pairing' && listType !== 'batch') {
         tryCreatePair();
     }
     
@@ -407,7 +406,7 @@ function handleFileClick(e, index, listType) {
 
 // ========== DRAG AND DROP ==========
 function handleDragStart(e, index, listType) {
-    const selectedSet = listType === 'target' ? state.selectedTarget : state.selectedSource;
+    const selectedSet = listType === 'target' || listType === 'batch' ? state.selectedTarget : state.selectedSource;
     
     if (!selectedSet.has(index)) {
         selectedSet.clear();
@@ -495,7 +494,7 @@ function handleDrop(e, targetIndex, targetListType) {
     
     list.splice(insertIndex, 0, ...draggedFiles);
     
-    const selectedSet = targetListType === 'target' ? state.selectedTarget : state.selectedSource;
+    const selectedSet = targetListType === 'target' || targetListType === 'batch' ? state.selectedTarget : state.selectedSource;
     selectedSet.clear();
     for (let i = 0; i < draggedFiles.length; i++) {
         selectedSet.add(insertIndex + i);
@@ -610,46 +609,91 @@ function tryCreatePair() {
 
 function excludeFile(index, listType) {
     if (listType === 'target' || listType === 'batch') {
-        const file = state.visibleTargetFiles[index];
-        delete state.pairs[file.name];
-        state.visibleTargetFiles.splice(index, 1);
-        state.selectedTarget.delete(index);
+        const selectedSet = state.selectedTarget;
         
-        const newSelected = new Set();
-        state.selectedTarget.forEach(idx => {
-            if (idx > index) {
-                newSelected.add(idx - 1);
-            } else if (idx < index) {
-                newSelected.add(idx);
-            }
-        });
-        state.selectedTarget = newSelected;
+        // Если кликнутый элемент выделен и есть другие выделенные - удаляем все выделенные
+        if (selectedSet.has(index) && selectedSet.size > 1) {
+            // Сортируем индексы в обратном порядке для корректного удаления
+            const indicesToRemove = Array.from(selectedSet).sort((a, b) => b - a);
+            
+            indicesToRemove.forEach(idx => {
+                const file = state.visibleTargetFiles[idx];
+                delete state.pairs[file.name];
+            });
+            
+            // Удаляем файлы
+            indicesToRemove.forEach(idx => {
+                state.visibleTargetFiles.splice(idx, 1);
+            });
+            
+            // Очищаем выделение
+            state.selectedTarget.clear();
+        } else {
+            // Удаляем только один файл
+            const file = state.visibleTargetFiles[index];
+            delete state.pairs[file.name];
+            state.visibleTargetFiles.splice(index, 1);
+            state.selectedTarget.delete(index);
+            
+            // Корректируем индексы в выделении
+            const newSelected = new Set();
+            state.selectedTarget.forEach(idx => {
+                if (idx > index) {
+                    newSelected.add(idx - 1);
+                } else if (idx < index) {
+                    newSelected.add(idx);
+                }
+            });
+            state.selectedTarget = newSelected;
+        }
         
         renderTargetList();
         if (state.mode === 'batch') {
             renderBatchList();
         }
     } else if (listType === 'source') {
-        const file = state.visibleSourceFiles[index];
+        const selectedSet = state.selectedSource;
         
-        Object.keys(state.pairs).forEach(key => {
-            if (state.pairs[key] === file.name) {
-                delete state.pairs[key];
-            }
-        });
-        
-        state.visibleSourceFiles.splice(index, 1);
-        state.selectedSource.delete(index);
-        
-        const newSelected = new Set();
-        state.selectedSource.forEach(idx => {
-            if (idx > index) {
-                newSelected.add(idx - 1);
-            } else if (idx < index) {
-                newSelected.add(idx);
-            }
-        });
-        state.selectedSource = newSelected;
+        // Если кликнутый элемент выделен и есть другие выделенные - удаляем все выделенные
+        if (selectedSet.has(index) && selectedSet.size > 1) {
+            const indicesToRemove = Array.from(selectedSet).sort((a, b) => b - a);
+            
+            indicesToRemove.forEach(idx => {
+                const file = state.visibleSourceFiles[idx];
+                Object.keys(state.pairs).forEach(key => {
+                    if (state.pairs[key] === file.name) {
+                        delete state.pairs[key];
+                    }
+                });
+            });
+            
+            indicesToRemove.forEach(idx => {
+                state.visibleSourceFiles.splice(idx, 1);
+            });
+            
+            state.selectedSource.clear();
+        } else {
+            const file = state.visibleSourceFiles[index];
+            
+            Object.keys(state.pairs).forEach(key => {
+                if (state.pairs[key] === file.name) {
+                    delete state.pairs[key];
+                }
+            });
+            
+            state.visibleSourceFiles.splice(index, 1);
+            state.selectedSource.delete(index);
+            
+            const newSelected = new Set();
+            state.selectedSource.forEach(idx => {
+                if (idx > index) {
+                    newSelected.add(idx - 1);
+                } else if (idx < index) {
+                    newSelected.add(idx);
+                }
+            });
+            state.selectedSource = newSelected;
+        }
         
         renderSourceList();
     }
@@ -860,6 +904,12 @@ function computeNewName(targetName, sourceName) {
 
 // ========== INITIALIZATION ==========
 document.addEventListener('DOMContentLoaded', () => {
+    // Отключаем контекстное меню
+    document.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        return false;
+    });
+    
     // Window controls
     document.getElementById('minimize-btn').addEventListener('click', () => {
         WindowMinimize().catch(console.error);

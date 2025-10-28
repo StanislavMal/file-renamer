@@ -133,10 +133,16 @@
                         <div class="form-section">
                             <h4>Удаление символов</h4>
                             <div class="input-group-compact">
-                                <input type="number" id="batch-remove-start" class="input input-sm" 
-                                    placeholder="С начала" min="0" value="0">
-                                <input type="number" id="batch-remove-end" class="input input-sm" 
-                                    placeholder="С конца" min="0" value="0">
+                                <div class="input-wrapper">
+                                    <input type="number" id="batch-remove-start" class="input input-sm" 
+                                        placeholder="0" min="0" value="0">
+                                    <small class="input-hint">с начала</small>
+                                </div>
+                                <div class="input-wrapper">
+                                    <input type="number" id="batch-remove-end" class="input input-sm" 
+                                        placeholder="0" min="0" value="0">
+                                    <small class="input-hint">с конца</small>
+                                </div>
                             </div>
                         </div>
 

@@ -1,12 +1,164 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru" data-theme="light">
 <head>
     <meta charset="UTF-8"/>
-    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>file-renamer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>File Renamer</title>
+    <link rel="preconnect" href="https://rsms.me/">
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+    <link href="/src/style.css" rel="stylesheet"/>
 </head>
 <body>
-<div id="app"></div>
-<script src="./src/main.js" type="module"></script>
+<div id="app">
+    <!-- Titlebar -->
+    <div class="window-titlebar" data-wails-drag>
+        <div class="titlebar-drag">
+            <div class="titlebar-title">
+                <span class="titlebar-icon">📁</span>
+                File Renamer
+            </div>
+        </div>
+        <div class="titlebar-controls" data-wails-no-drag>
+            <button class="titlebar-button minimize" id="minimize-btn" type="button">
+                <svg width="12" height="12" viewBox="0 0 12 12">
+                    <rect x="0" y="5" width="12" height="2" fill="currentColor"/>
+                </svg>
+            </button>
+            <button class="titlebar-button maximize" id="maximize-btn" type="button">
+                <svg width="12" height="12" viewBox="0 0 12 12">
+                    <rect x="1" y="1" width="10" height="10" stroke="currentColor" stroke-width="2" fill="none"/>
+                </svg>
+            </button>
+            <button class="titlebar-button close" id="close-btn" type="button">
+                <svg width="12" height="12" viewBox="0 0 12 12">
+                    <path d="M1 1L11 11M11 1L1 11" stroke="currentColor" stroke-width="2"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main content -->
+    <div class="container">
+        <div class="header">
+            <h1>Интерактивное переименование файлов</h1>
+            <p>Выберите режим работы и настройте параметры переименования</p>
+        </div>
+
+        <!-- Режим работы -->
+        <div class="mode-selector">
+            <label>Режим работы:</label>
+            <div class="mode-buttons">
+                <button data-mode="pairing" class="active" type="button">Сопоставление</button>
+                <button data-mode="batch" type="button">Пакетная обработка</button>
+            </div>
+        </div>
+
+        <!-- Выбор папок -->
+        <div class="folders-section">
+            <div class="input-group">
+                <label>Целевая папка (файлы для переименования):</label>
+                <div class="input-with-button">
+                    <input type="text" id="target-path" class="input" placeholder="Выберите папку или вставьте путь..." readonly>
+                    <button id="target-browse-btn" class="btn" type="button">Обзор...</button>
+                </div>
+                <small id="target-count">Файлов: 0</small>
+            </div>
+
+            <div class="input-group" id="source-group">
+                <label>Папка с образцами имён (источник):</label>
+                <div class="input-with-button">
+                    <input type="text" id="source-path" class="input" placeholder="Выберите папку или вставьте путь..." readonly>
+                    <button id="source-browse-btn" class="btn" type="button">Обзор...</button>
+                </div>
+                <small id="source-count">Файлов: 0</small>
+            </div>
+        </div>
+
+        <!-- Контент в зависимости от режима -->
+        <div class="content-area">
+            <!-- Режим сопоставления -->
+            <div id="pairing-mode" class="mode-content active">
+                <div class="pairing-controls">
+                    <button id="map-in-order-btn" class="btn" type="button">Сопоставить по порядку</button>
+                    <button id="unpair-btn" class="btn" type="button">Удалить пару</button>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="exclude-mode-check">
+                        Режим исключения
+                    </label>
+                </div>
+
+                <div class="lists-container">
+                    <div class="file-list-panel">
+                        <h3>Целевые файлы (<span id="target-visible-count">0</span> / <span id="target-total-count">0</span>)</h3>
+                        <div class="file-list" id="target-list"></div>
+                        <div class="list-controls">
+                            <button id="target-up-btn" class="btn-icon" type="button" title="Вверх">↑</button>
+                            <button id="target-down-btn" class="btn-icon" type="button" title="Вниз">↓</button>
+                        </div>
+                    </div>
+
+                    <div class="file-list-panel">
+                        <h3>Файлы-образцы (<span id="source-visible-count">0</span> / <span id="source-total-count">0</span>)</h3>
+                        <div class="file-list" id="source-list"></div>
+                        <div class="list-controls">
+                            <button id="source-up-btn" class="btn-icon" type="button" title="Вверх">↑</button>
+                            <button id="source-down-btn" class="btn-icon" type="button" title="Вниз">↓</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Режим пакетной обработки -->
+            <div id="batch-mode" class="mode-content">
+                <div class="batch-form">
+                    <div class="input-group">
+                        <label>Найти текст:</label>
+                        <input type="text" id="batch-find" class="input" placeholder="Текст для поиска...">
+                    </div>
+
+                    <div class="input-group">
+                        <label>Заменить на:</label>
+                        <input type="text" id="batch-replace" class="input" placeholder="Текст для замены...">
+                    </div>
+
+                    <div class="input-group">
+                        <label>Добавить префикс:</label>
+                        <input type="text" id="batch-prefix" class="input" placeholder="Префикс...">
+                    </div>
+
+                    <div class="input-group">
+                        <label>Добавить суффикс (перед расширением):</label>
+                        <input type="text" id="batch-suffix" class="input" placeholder="Суффикс...">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Предпросмотр -->
+        <div class="preview-section">
+            <h3>Предпросмотр изменений</h3>
+            <div id="preview-content" class="preview-content">
+                <p class="text-muted">Выберите файлы для переименования</p>
+            </div>
+        </div>
+
+        <!-- Действия -->
+        <div class="actions">
+            <button id="reset-btn" class="btn" type="button">Сброс</button>
+            <button id="rename-btn" class="btn btn-primary" type="button" disabled>Переименовать</button>
+        </div>
+
+        <!-- Theme switcher -->
+        <div class="theme-switcher">
+            <label>Тема оформления</label>
+            <div class="theme-buttons">
+                <button data-theme="Light" type="button">Светлая</button>
+                <button data-theme="Dark" type="button">Тёмная</button>
+                <button data-theme="System" type="button">Системная</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="/src/main.js" type="module"></script>
 </body>
 </html>

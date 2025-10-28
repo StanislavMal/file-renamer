@@ -8,3 +8,5 @@ frontend/dist
 
 dist/
 .DS_Store
+generate-project-context.js
+PROJECT_CONTEXT.md

@@ -1,13 +1,12 @@
 {
-  "name": "frontend",
-  "private": true,
-  "version": "0.0.0",
+  "name": "file-renamer-frontend",
+  "version": "1.0.0",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "generate-context": "node ../generate-project-context.js"
   },
   "devDependencies": {
-    "vite": "^3.0.7"
+    "vite": "^5.0.0"
   }
 }

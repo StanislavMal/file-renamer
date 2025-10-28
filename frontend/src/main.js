@@ -846,14 +846,45 @@ async function executeRename() {
                 `Успешно переименовано: ${result.success}\nОшибок: ${result.errors.length}\n\n${result.errors.join('\n')}`,
                 'Выполнено с ошибками'
             );
+        } else {
+            // ИСПРАВЛЕНИЕ: Показываем успех только если нет ошибок
+            await showSuccess(
+                `Успешно переименовано файлов: ${result.success}`,
+                'Переименование завершено'
+            );
         }
         
-        // Перезагружаем файлы без лишних уведомлений
+        // Перезагружаем файлы
         await loadTargetFiles();
         if (state.mode === 'pairing') {
             await loadSourceFiles();
         }
-        resetState();
+        
+        // ИСПРАВЛЕНИЕ: Очищаем состояние и preview
+        state.pairs = {};
+        state.selectedTarget.clear();
+        state.selectedSource.clear();
+        state.lastClickedTarget = null;
+        state.lastClickedSource = null;
+        state.lastPlan = null; // Очищаем план
+        
+        renderTargetList();
+        renderSourceList();
+        if (state.mode === 'batch') {
+            renderBatchList();
+        }
+        updateCounts();
+        
+        // Очищаем preview
+        const previewContent = document.getElementById('preview-content');
+        const previewCount = document.getElementById('preview-count');
+        previewContent.innerHTML = '<p class="text-muted">Выберите файлы для переименования</p>';
+        previewCount.textContent = '';
+        
+        const renameBtn = document.getElementById('rename-btn');
+        const batchRenameBtn = document.getElementById('batch-rename-btn');
+        if (renameBtn) renameBtn.disabled = true;
+        if (batchRenameBtn) batchRenameBtn.disabled = true;
         
     } catch (error) {
         console.error('Ошибка выполнения:', error);

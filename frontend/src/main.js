@@ -404,7 +404,7 @@ function handleFileClick(e, index, listType) {
     }
 }
 
-// ========== DRAG AND DROP ==========
+// ========== DRAG AND DROP - ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ ==========
 function handleDragStart(e, index, listType) {
     const selectedSet = listType === 'target' || listType === 'batch' ? state.selectedTarget : state.selectedSource;
     
@@ -441,7 +441,6 @@ function handleDragEnd(e) {
 
 function handleDragOver(e, targetIndex, targetListType) {
     e.preventDefault();
-    e.stopPropagation();
     
     if (state.draggedList !== targetListType) {
         return;
@@ -457,10 +456,108 @@ function handleDragOver(e, targetIndex, targetListType) {
     }
 }
 
+// Обработка dragover на контейнере списка (когда курсор между элементами)
+function handleListDragOver(e, listType) {
+    e.preventDefault();
+    
+    if (state.draggedList !== listType) {
+        return;
+    }
+    
+    e.dataTransfer.dropEffect = 'move';
+    
+    const listElement = e.currentTarget;
+    const items = Array.from(listElement.querySelectorAll('.file-item'));
+    
+    if (items.length === 0) return;
+    
+    let closestItem = null;
+    let closestDistance = Infinity;
+    let insertBefore = true;
+    
+    items.forEach((item) => {
+        const rect = item.getBoundingClientRect();
+        const itemMiddle = rect.top + rect.height / 2;
+        const distance = Math.abs(e.clientY - itemMiddle);
+        
+        if (distance < closestDistance) {
+            closestDistance = distance;
+            closestItem = item;
+            insertBefore = e.clientY < itemMiddle;
+        }
+    });
+    
+    if (closestItem) {
+        showDropIndicatorForList(closestItem, insertBefore);
+        handleAutoScroll(e, listElement);
+    }
+}
+
+// НОВАЯ ФУНКЦИЯ: Обработка drop на контейнере списка
+function handleListDrop(e, listType) {
+    e.preventDefault();
+    e.stopPropagation();
+    removeDropIndicator();
+    stopAutoScroll();
+    
+    if (state.draggedList !== listType || !state.draggedItems || state.draggedItems.length === 0) {
+        return;
+    }
+    
+    const listElement = e.currentTarget;
+    const items = Array.from(listElement.querySelectorAll('.file-item'));
+    
+    if (items.length === 0) return;
+    
+    // Найти ближайший элемент и определить куда вставлять
+    let closestItem = null;
+    let closestDistance = Infinity;
+    let insertBefore = true;
+    
+    items.forEach((item) => {
+        const rect = item.getBoundingClientRect();
+        const itemMiddle = rect.top + rect.height / 2;
+        const distance = Math.abs(e.clientY - itemMiddle);
+        
+        if (distance < closestDistance) {
+            closestDistance = distance;
+            closestItem = item;
+            insertBefore = e.clientY < itemMiddle;
+        }
+    });
+    
+    if (!closestItem) return;
+    
+    const targetIndex = parseInt(closestItem.dataset.index);
+    const insertIndex = insertBefore ? targetIndex : targetIndex + 1;
+    
+    // Выполняем вставку
+    performDrop(insertIndex, listType);
+}
+
+function showDropIndicatorForList(targetElement, insertBefore) {
+    removeDropIndicator();
+    
+    const indicator = document.createElement('div');
+    indicator.className = 'drop-indicator';
+    indicator.id = 'drop-indicator';
+    
+    if (insertBefore) {
+        targetElement.parentNode.insertBefore(indicator, targetElement);
+    } else {
+        if (targetElement.nextSibling) {
+            targetElement.parentNode.insertBefore(indicator, targetElement.nextSibling);
+        } else {
+            targetElement.parentNode.appendChild(indicator);
+        }
+    }
+    
+    state.dropIndicator = indicator;
+}
+
 function handleDrop(e, targetIndex, targetListType) {
     e.preventDefault();
     e.stopPropagation();
-    e.currentTarget.classList.remove('drag-over');
     removeDropIndicator();
     stopAutoScroll();
     
@@ -468,22 +565,28 @@ function handleDrop(e, targetIndex, targetListType) {
         return;
     }
     
-    let list;
-    if (targetListType === 'target' || targetListType === 'batch') {
-        list = state.visibleTargetFiles;
-    } else if (targetListType === 'source') {
-        list = state.visibleSourceFiles;
-    }
-    
     const rect = e.currentTarget.getBoundingClientRect();
     const mouseY = e.clientY;
     const itemMiddle = rect.top + rect.height / 2;
     const insertBefore = mouseY < itemMiddle;
     
-    let insertIndex = insertBefore ? targetIndex : targetIndex + 1;
+    const insertIndex = insertBefore ? targetIndex : targetIndex + 1;
+    
+    performDrop(insertIndex, targetListType);
+}
+
+// НОВАЯ ФУНКЦИЯ: Общая логика выполнения drop
+function performDrop(insertIndex, listType) {
+    let list;
+    if (listType === 'target' || listType === 'batch') {
+        list = state.visibleTargetFiles;
+    } else if (listType === 'source') {
+        list = state.visibleSourceFiles;
+    }
     
     const draggedFiles = state.draggedItems.map(idx => list[idx]);
     
+    // Удаляем перетаскиваемые элементы (в обратном порядке)
     const sortedIndices = [...state.draggedItems].sort((a, b) => b - a);
     for (const idx of sortedIndices) {
         list.splice(idx, 1);
@@ -492,19 +595,22 @@ function handleDrop(e, targetIndex, targetListType) {
         }
     }
     
+    // Вставляем в новую позицию
     list.splice(insertIndex, 0, ...draggedFiles);
     
-    const selectedSet = targetListType === 'target' || targetListType === 'batch' ? state.selectedTarget : state.selectedSource;
+    // Обновляем выделение
+    const selectedSet = listType === 'target' || listType === 'batch' ? state.selectedTarget : state.selectedSource;
     selectedSet.clear();
     for (let i = 0; i < draggedFiles.length; i++) {
         selectedSet.add(insertIndex + i);
     }
     
-    if (targetListType === 'target') {
+    // Перерисовываем
+    if (listType === 'target') {
         renderTargetList();
-    } else if (targetListType === 'source') {
+    } else if (listType === 'source') {
         renderSourceList();
-    } else if (targetListType === 'batch') {
+    } else if (listType === 'batch') {
         renderBatchList();
     }
     
@@ -611,9 +717,7 @@ function excludeFile(index, listType) {
     if (listType === 'target' || listType === 'batch') {
         const selectedSet = state.selectedTarget;
         
-        // Если кликнутый элемент выделен и есть другие выделенные - удаляем все выделенные
         if (selectedSet.has(index) && selectedSet.size > 1) {
-            // Сортируем индексы в обратном порядке для корректного удаления
             const indicesToRemove = Array.from(selectedSet).sort((a, b) => b - a);
             
             indicesToRemove.forEach(idx => {
@@ -621,21 +725,17 @@ function excludeFile(index, listType) {
                 delete state.pairs[file.name];
             });
             
-            // Удаляем файлы
             indicesToRemove.forEach(idx => {
                 state.visibleTargetFiles.splice(idx, 1);
             });
             
-            // Очищаем выделение
             state.selectedTarget.clear();
         } else {
-            // Удаляем только один файл
             const file = state.visibleTargetFiles[index];
             delete state.pairs[file.name];
             state.visibleTargetFiles.splice(index, 1);
             state.selectedTarget.delete(index);
             
-            // Корректируем индексы в выделении
             const newSelected = new Set();
             state.selectedTarget.forEach(idx => {
                 if (idx > index) {
@@ -654,7 +754,6 @@ function excludeFile(index, listType) {
     } else if (listType === 'source') {
         const selectedSet = state.selectedSource;
         
-        // Если кликнутый элемент выделен и есть другие выделенные - удаляем все выделенные
         if (selectedSet.has(index) && selectedSet.size > 1) {
             const indicesToRemove = Array.from(selectedSet).sort((a, b) => b - a);
             
@@ -847,26 +946,23 @@ async function executeRename() {
                 'Выполнено с ошибками'
             );
         } else {
-            // ИСПРАВЛЕНИЕ: Показываем успех только если нет ошибок
             await showSuccess(
                 `Успешно переименовано файлов: ${result.success}`,
                 'Переименование завершено'
             );
         }
         
-        // Перезагружаем файлы
         await loadTargetFiles();
         if (state.mode === 'pairing') {
             await loadSourceFiles();
         }
         
-        // ИСПРАВЛЕНИЕ: Очищаем состояние и preview
         state.pairs = {};
         state.selectedTarget.clear();
         state.selectedSource.clear();
         state.lastClickedTarget = null;
         state.lastClickedSource = null;
-        state.lastPlan = null; // Очищаем план
+        state.lastPlan = null;
         
         renderTargetList();
         renderSourceList();
@@ -875,7 +971,6 @@ async function executeRename() {
         }
         updateCounts();
         
-        // Очищаем preview
         const previewContent = document.getElementById('preview-content');
         const previewCount = document.getElementById('preview-count');
         previewContent.innerHTML = '<p class="text-muted">Выберите файлы для переименования</p>';
@@ -984,6 +1079,26 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Pairing controls
     document.getElementById('map-in-order-btn').addEventListener('click', mapInOrder);
+    
+    // ИСПРАВЛЕНИЕ: Добавляем обработчики dragover И drop на контейнеры списков
+    const targetList = document.getElementById('target-list');
+    const sourceList = document.getElementById('source-list');
+    const batchList = document.getElementById('batch-list');
+    
+    if (targetList) {
+        targetList.addEventListener('dragover', (e) => handleListDragOver(e, 'target'));
+        targetList.addEventListener('drop', (e) => handleListDrop(e, 'target'));
+    }
+    
+    if (sourceList) {
+        sourceList.addEventListener('dragover', (e) => handleListDragOver(e, 'source'));
+        sourceList.addEventListener('drop', (e) => handleListDrop(e, 'source'));
+    }
+    
+    if (batchList) {
+        batchList.addEventListener('dragover', (e) => handleListDragOver(e, 'batch'));
+        batchList.addEventListener('drop', (e) => handleListDrop(e, 'batch'));
+    }
     
     // Batch inputs
     ['batch-find', 'batch-replace', 'batch-prefix', 'batch-suffix', 

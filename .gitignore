@@ -1,0 +1,10 @@
+build/bin
+node_modules
+frontend/dist
+
+*.exe
+*.log
+*.tmp
+
+dist/
+.DS_Store

@@ -568,9 +568,9 @@ body::before {
     top: 50%;
     right: 8px;
     transform: translateY(-50%);
-    width: 20px;
-    height: 20px;
-    background: var(--error);
+    width: 22px;
+    height: 22px;
+    background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
     color: white;
     border: none;
     border-radius: 50%;
@@ -578,10 +578,12 @@ body::before {
     display: none;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
+    font-size: 16px;
+    font-weight: 600;
     line-height: 1;
     transition: var(--transition);
     z-index: 10;
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
 }
 
 .file-item:hover .file-item-remove {
@@ -589,11 +591,10 @@ body::before {
 }
 
 .file-item-remove:hover {
-    background: var(--error);
-    transform: translateY(-50%) scale(1.1);
+    background: linear-gradient(135deg, #fb923c 0%, #f97316 100%);
+    transform: translateY(-50%) scale(1.15);
+    box-shadow: 0 4px 8px rgba(245, 158, 11, 0.4);
 }
-
-/* ... (предыдущие стили остаются) */
 
 /* ========== FILE ITEM WITH LINE NUMBERS ========== */
 .file-item {
@@ -956,3 +957,118 @@ body::before {
     background: var(--text-tertiary);
 }
 
+/* ========== CUSTOM MODAL ========== */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeIn 0.15s ease-out;
+}
+
+.modal-overlay.show {
+    display: flex;
+}
+
+.modal-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 28px;
+    min-width: 360px;
+    max-width: 480px;
+    box-shadow: var(--shadow-lg), 0 20px 40px rgba(0, 0, 0, 0.2);
+    animation: modalSlideIn 0.2s ease-out;
+    text-align: center;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.modal-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    line-height: 1;
+}
+
+.modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+    letter-spacing: -0.02em;
+}
+
+.modal-message {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.modal-btn {
+    height: 38px;
+    padding: 0 24px;
+    background: var(--surface-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-family: var(--font-family);
+    transition: var(--transition);
+    min-width: 100px;
+}
+
+.modal-btn:hover {
+    background: var(--surface-hover);
+    border-color: var(--border-hover);
+    transform: translateY(-1px);
+}
+
+.modal-btn.primary {
+    background: var(--gradient-accent);
+    border: none;
+    color: var(--accent-text);
+    box-shadow: var(--shadow-md);
+}
+
+.modal-btn.primary:hover {
+    filter: brightness(1.1);
+    box-shadow: var(--shadow-lg), var(--glow-subtle);
+}
+
+.modal-btn.danger {
+    background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+    border: none;
+    color: white;
+    box-shadow: var(--shadow-md);
+}
+
+.modal-btn.danger:hover {
+    filter: brightness(1.1);
+    box-shadow: var(--shadow-lg), 0 0 20px rgba(229, 62, 62, 0.3);
+}

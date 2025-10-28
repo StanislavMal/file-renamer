@@ -11,24 +11,123 @@ import {
 
 // ========== STATE ==========
 const state = {
-    mode: 'pairing', // 'pairing' | 'batch'
+    mode: 'pairing',
     targetDir: '',
     sourceDir: '',
     targetFiles: [],
     sourceFiles: [],
     visibleTargetFiles: [],
     visibleSourceFiles: [],
-    pairs: {}, // targetName -> sourceName
-    selectedTarget: new Set(), // Множественное выделение
+    pairs: {},
+    selectedTarget: new Set(),
     selectedSource: new Set(),
-    lastClickedTarget: null, // Для Shift-выделения
+    lastClickedTarget: null,
     lastClickedSource: null,
     lastPlan: null,
-    draggedItems: null, // Массив индексов перетаскиваемых элементов
+    draggedItems: null,
     draggedList: null,
     dropIndicator: null,
     autoScrollInterval: null
 };
+
+// ========== CUSTOM MODAL ========== 
+function showModal(options) {
+    return new Promise((resolve) => {
+        const overlay = document.getElementById('modal-overlay');
+        const icon = document.getElementById('modal-icon');
+        const title = document.getElementById('modal-title');
+        const message = document.getElementById('modal-message');
+        const buttons = document.getElementById('modal-buttons');
+
+        icon.textContent = options.icon || '💬';
+        title.textContent = options.title || '';
+        message.textContent = options.message || '';
+
+        buttons.innerHTML = '';
+
+        if (options.type === 'confirm') {
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'modal-btn';
+            cancelBtn.textContent = options.cancelText || 'Отмена';
+            cancelBtn.onclick = () => {
+                hideModal();
+                resolve(false);
+            };
+
+            const confirmBtn = document.createElement('button');
+            confirmBtn.className = 'modal-btn primary';
+            confirmBtn.textContent = options.confirmText || 'ОК';
+            confirmBtn.onclick = () => {
+                hideModal();
+                resolve(true);
+            };
+
+            buttons.appendChild(cancelBtn);
+            buttons.appendChild(confirmBtn);
+        } else if (options.type === 'error') {
+            const okBtn = document.createElement('button');
+            okBtn.className = 'modal-btn danger';
+            okBtn.textContent = 'Закрыть';
+            okBtn.onclick = () => {
+                hideModal();
+                resolve(true);
+            };
+            buttons.appendChild(okBtn);
+        } else {
+            const okBtn = document.createElement('button');
+            okBtn.className = 'modal-btn primary';
+            okBtn.textContent = options.confirmText || 'ОК';
+            okBtn.onclick = () => {
+                hideModal();
+                resolve(true);
+            };
+            buttons.appendChild(okBtn);
+        }
+
+        overlay.classList.add('show');
+
+        // ESC для закрытия
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') {
+                hideModal();
+                resolve(false);
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+
+        // Клик по overlay
+        overlay.onclick = (e) => {
+            if (e.target === overlay) {
+                hideModal();
+                resolve(false);
+            }
+        };
+    });
+}
+
+function hideModal() {
+    const overlay = document.getElementById('modal-overlay');
+    overlay.classList.remove('show');
+    overlay.onclick = null;
+}
+
+// Утилиты для удобства
+async function showAlert(message, title = 'Внимание', icon = '⚠️') {
+    return showModal({ type: 'alert', title, message, icon });
+}
+
+async function showError(message, title = 'Ошибка') {
+    return showModal({ type: 'error', title, message, icon: '❌' });
+}
+
+async function showSuccess(message, title = 'Успешно') {
+    return showModal({ type: 'alert', title, message, icon: '✅' });
+}
+
+async function showConfirm(message, title = 'Подтверждение', confirmText = 'Да', cancelText = 'Нет') {
+    return showModal({ type: 'confirm', title, message, icon: '❓', confirmText, cancelText });
+}
 
 // ========== THEME ==========
 function getSystemTheme() {
@@ -62,7 +161,6 @@ function switchMode(newMode) {
     
     document.getElementById(`${newMode}-mode`).classList.add('active');
     
-    // Show/hide source folder selector
     const sourceGroup = document.getElementById('source-group');
     if (newMode === 'pairing') {
         sourceGroup.classList.remove('hidden');
@@ -93,7 +191,7 @@ async function loadTargetFiles() {
         updatePreview();
     } catch (error) {
         console.error('Ошибка загрузки целевых файлов:', error);
-        alert(`Ошибка: ${error}`);
+        showError(`Не удалось загрузить файлы: ${error}`);
     }
 }
 
@@ -108,7 +206,7 @@ async function loadSourceFiles() {
         updateCounts();
     } catch (error) {
         console.error('Ошибка загрузки файлов-образцов:', error);
-        alert(`Ошибка: ${error}`);
+        showError(`Не удалось загрузить файлы: ${error}`);
     }
 }
 
@@ -178,19 +276,16 @@ function createFileItem(file, index, listType) {
     item.dataset.listType = listType;
     item.draggable = true;
     
-    // Selection state
     const selectedSet = listType === 'target' ? state.selectedTarget : state.selectedSource;
     if (selectedSet.has(index)) {
         item.classList.add('selected');
     }
     
-    // Paired state
     const isPaired = state.pairs[file.name];
     if (isPaired && listType === 'target') {
         item.classList.add('paired');
     }
     
-    // Check if source is paired
     if (listType === 'source') {
         const pairedTarget = Object.keys(state.pairs).find(k => state.pairs[k] === file.name);
         if (pairedTarget) {
@@ -198,23 +293,19 @@ function createFileItem(file, index, listType) {
         }
     }
     
-    // Line number
     const lineNumber = document.createElement('span');
     lineNumber.className = 'file-item-number';
     lineNumber.textContent = (index + 1).toString().padStart(3, ' ');
     item.appendChild(lineNumber);
     
-    // File content wrapper
     const contentWrapper = document.createElement('div');
     contentWrapper.className = 'file-item-content';
     
-    // File name
     const nameSpan = document.createElement('span');
     nameSpan.className = 'file-item-name';
     nameSpan.textContent = file.name;
     contentWrapper.appendChild(nameSpan);
     
-    // Additional info
     if (isPaired && state.mode === 'pairing' && listType === 'target') {
         const info = document.createElement('small');
         info.textContent = `→ ${computeNewName(file.name, state.pairs[file.name])}`;
@@ -232,21 +323,18 @@ function createFileItem(file, index, listType) {
     
     item.appendChild(contentWrapper);
     
-    // Remove button
+    // Измененная кнопка исключения с минусом
     const removeBtn = document.createElement('button');
     removeBtn.className = 'file-item-remove';
-    removeBtn.innerHTML = '✕';
-    removeBtn.title = 'Исключить файл';
+    removeBtn.innerHTML = '−'; // Минус вместо крестика
+    removeBtn.title = 'Исключить из обработки';
     removeBtn.onclick = (e) => {
         e.stopPropagation();
         excludeFile(index, listType);
     };
     item.appendChild(removeBtn);
     
-    // Events
     item.addEventListener('click', (e) => handleFileClick(e, index, listType));
-    
-    // Drag events
     item.addEventListener('dragstart', (e) => handleDragStart(e, index, listType));
     item.addEventListener('dragend', (e) => handleDragEnd(e));
     item.addEventListener('dragover', (e) => handleDragOver(e, index, listType));
@@ -277,7 +365,6 @@ function handleFileClick(e, index, listType) {
     const lastClicked = listType === 'target' ? state.lastClickedTarget : state.lastClickedSource;
     
     if (e.shiftKey && lastClicked !== null) {
-        // Shift-выделение диапазона
         const start = Math.min(lastClicked, index);
         const end = Math.max(lastClicked, index);
         
@@ -285,37 +372,30 @@ function handleFileClick(e, index, listType) {
             selectedSet.add(i);
         }
     } else if (e.ctrlKey || e.metaKey) {
-        // Ctrl/Cmd - переключение выделения
         if (selectedSet.has(index)) {
             selectedSet.delete(index);
         } else {
             selectedSet.add(index);
         }
     } else {
-        // Обычный клик
         if (selectedSet.size === 1 && selectedSet.has(index)) {
-            // Если выделен только этот элемент - снимаем выделение
             selectedSet.clear();
         } else {
-            // Иначе - выделяем только этот элемент
             selectedSet.clear();
             selectedSet.add(index);
         }
     }
     
-    // Обновляем последний кликнутый
     if (listType === 'target') {
         state.lastClickedTarget = index;
     } else {
         state.lastClickedSource = index;
     }
     
-    // Пробуем создать пару если выделен один target и один source
     if (state.mode === 'pairing') {
         tryCreatePair();
     }
     
-    // Перерисовываем списки
     if (listType === 'target') {
         renderTargetList();
     } else if (listType === 'source') {
@@ -329,7 +409,6 @@ function handleFileClick(e, index, listType) {
 function handleDragStart(e, index, listType) {
     const selectedSet = listType === 'target' ? state.selectedTarget : state.selectedSource;
     
-    // Если кликнутый элемент не выделен, выделяем только его
     if (!selectedSet.has(index)) {
         selectedSet.clear();
         selectedSet.add(index);
@@ -343,13 +422,12 @@ function handleDragStart(e, index, listType) {
         }
     }
     
-    // Перетаскиваем все выделенные элементы
     state.draggedItems = Array.from(selectedSet).sort((a, b) => a - b);
     state.draggedList = listType;
     
     e.currentTarget.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', ''); // Для Firefox
+    e.dataTransfer.setData('text/plain', '');
 }
 
 function handleDragEnd(e) {
@@ -366,17 +444,14 @@ function handleDragOver(e, targetIndex, targetListType) {
     e.preventDefault();
     e.stopPropagation();
     
-    // Можно перетаскивать только внутри одного списка
     if (state.draggedList !== targetListType) {
         return;
     }
     
     e.dataTransfer.dropEffect = 'move';
     
-    // Показываем индикатор между элементами
     showDropIndicator(e, targetIndex, targetListType);
     
-    // Запускаем автоскролл если нужно
     const listElement = e.currentTarget.closest('.file-list');
     if (listElement) {
         handleAutoScroll(e, listElement);
@@ -401,7 +476,6 @@ function handleDrop(e, targetIndex, targetListType) {
         list = state.visibleSourceFiles;
     }
     
-    // Определяем позицию для вставки
     const rect = e.currentTarget.getBoundingClientRect();
     const mouseY = e.clientY;
     const itemMiddle = rect.top + rect.height / 2;
@@ -409,30 +483,24 @@ function handleDrop(e, targetIndex, targetListType) {
     
     let insertIndex = insertBefore ? targetIndex : targetIndex + 1;
     
-    // Извлекаем перетаскиваемые элементы
     const draggedFiles = state.draggedItems.map(idx => list[idx]);
     
-    // Удаляем их из исходных позиций (в обратном порядке, чтобы индексы не сбивались)
     const sortedIndices = [...state.draggedItems].sort((a, b) => b - a);
     for (const idx of sortedIndices) {
         list.splice(idx, 1);
-        // Корректируем insertIndex если удаляем элементы перед местом вставки
         if (idx < insertIndex) {
             insertIndex--;
         }
     }
     
-    // Вставляем в новую позицию
     list.splice(insertIndex, 0, ...draggedFiles);
     
-    // Обновляем выделение на новые индексы
     const selectedSet = targetListType === 'target' ? state.selectedTarget : state.selectedSource;
     selectedSet.clear();
     for (let i = 0; i < draggedFiles.length; i++) {
         selectedSet.add(insertIndex + i);
     }
     
-    // Перерисовываем
     if (targetListType === 'target') {
         renderTargetList();
     } else if (targetListType === 'source') {
@@ -480,8 +548,8 @@ function removeDropIndicator() {
 function handleAutoScroll(e, listElement) {
     const rect = listElement.getBoundingClientRect();
     const mouseY = e.clientY;
-    const threshold = 50; // Зона активации автоскролла
-    const scrollSpeed = 10; // Скорость скролла
+    const threshold = 50;
+    const scrollSpeed = 10;
     
     const distanceFromTop = mouseY - rect.top;
     const distanceFromBottom = rect.bottom - mouseY;
@@ -489,12 +557,10 @@ function handleAutoScroll(e, listElement) {
     stopAutoScroll();
     
     if (distanceFromTop < threshold && distanceFromTop >= 0) {
-        // Скролл вверх
         state.autoScrollInterval = setInterval(() => {
             listElement.scrollTop -= scrollSpeed;
         }, 20);
     } else if (distanceFromBottom < threshold && distanceFromBottom >= 0) {
-        // Скролл вниз
         state.autoScrollInterval = setInterval(() => {
             listElement.scrollTop += scrollSpeed;
         }, 20);
@@ -522,17 +588,14 @@ function tryCreatePair() {
     
     if (!targetFile || !sourceFile) return;
     
-    // Remove old pairing
     delete state.pairs[targetFile.name];
     
-    // Remove if source was paired with someone else
     Object.keys(state.pairs).forEach(key => {
         if (state.pairs[key] === sourceFile.name) {
             delete state.pairs[key];
         }
     });
     
-    // Create new pair
     state.pairs[targetFile.name] = sourceFile.name;
     
     state.selectedTarget.clear();
@@ -552,7 +615,6 @@ function excludeFile(index, listType) {
         state.visibleTargetFiles.splice(index, 1);
         state.selectedTarget.delete(index);
         
-        // Обновляем индексы в selectedTarget
         const newSelected = new Set();
         state.selectedTarget.forEach(idx => {
             if (idx > index) {
@@ -570,7 +632,6 @@ function excludeFile(index, listType) {
     } else if (listType === 'source') {
         const file = state.visibleSourceFiles[index];
         
-        // Remove pairing
         Object.keys(state.pairs).forEach(key => {
             if (state.pairs[key] === file.name) {
                 delete state.pairs[key];
@@ -580,7 +641,6 @@ function excludeFile(index, listType) {
         state.visibleSourceFiles.splice(index, 1);
         state.selectedSource.delete(index);
         
-        // Обновляем индексы в selectedSource
         const newSelected = new Set();
         state.selectedSource.forEach(idx => {
             if (idx > index) {
@@ -598,22 +658,27 @@ function excludeFile(index, listType) {
     updatePreview();
 }
 
-function mapInOrder() {
+async function mapInOrder() {
     if (!state.targetDir || !state.sourceDir) {
-        alert('Выберите обе папки');
+        await showAlert('Выберите обе папки для сопоставления', 'Недостаточно данных');
         return;
     }
     
     if (state.visibleTargetFiles.length === 0 || state.visibleSourceFiles.length === 0) {
-        alert('Один из списков пуст');
+        await showAlert('Один из списков файлов пуст', 'Невозможно выполнить');
         return;
     }
     
     const limit = Math.min(state.visibleTargetFiles.length, state.visibleSourceFiles.length);
     
-    if (!confirm(`Сопоставить первые ${limit} файлов по порядку?`)) {
-        return;
-    }
+    const confirmed = await showConfirm(
+        `Сопоставить первые ${limit} файлов по порядку?`,
+        'Автоматическое сопоставление',
+        'Сопоставить',
+        'Отмена'
+    );
+    
+    if (!confirmed) return;
     
     state.pairs = {};
     for (let i = 0; i < limit; i++) {
@@ -645,7 +710,6 @@ async function updatePreview() {
             
             result = await BuildPlanFromPairs(state.targetDir, state.pairs);
         } else {
-            // Batch mode
             const numberingEnabled = document.getElementById('batch-numbering').checked;
             const params = {
                 find: document.getElementById('batch-find').value,
@@ -716,25 +780,31 @@ async function updatePreview() {
 // ========== EXECUTION ==========
 async function executeRename() {
     if (!state.lastPlan || !state.lastPlan.operations || state.lastPlan.operations.length === 0) {
-        alert('Нет операций для выполнения');
+        await showAlert('Нет операций для выполнения', 'Невозможно выполнить');
         return;
     }
     
     const count = state.lastPlan.operations.length;
-    if (!confirm(`Выполнить ${count} переименований?`)) {
-        return;
-    }
+    const confirmed = await showConfirm(
+        `Будет переименовано файлов: ${count}\n\nЭто действие нельзя отменить.`,
+        'Подтверждение переименования',
+        'Переименовать',
+        'Отмена'
+    );
+    
+    if (!confirmed) return;
     
     try {
         const result = await ExecuteRename(state.lastPlan.operations);
         
         if (result.errors && result.errors.length > 0) {
-            alert(`Успешно: ${result.success}\nОшибок: ${result.errors.length}\n\n${result.errors.join('\n')}`);
-        } else {
-            alert(`Успешно переименовано: ${result.success}`);
+            await showError(
+                `Успешно переименовано: ${result.success}\nОшибок: ${result.errors.length}\n\n${result.errors.join('\n')}`,
+                'Выполнено с ошибками'
+            );
         }
         
-        // Reload files
+        // Перезагружаем файлы без лишних уведомлений
         await loadTargetFiles();
         if (state.mode === 'pairing') {
             await loadSourceFiles();
@@ -743,7 +813,7 @@ async function executeRename() {
         
     } catch (error) {
         console.error('Ошибка выполнения:', error);
-        alert(`Ошибка: ${error}`);
+        await showError(`Не удалось выполнить переименование:\n${error}`, 'Критическая ошибка');
     }
 }
 

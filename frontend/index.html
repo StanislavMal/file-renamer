@@ -11,8 +11,8 @@
 <body>
 <div id="app">
     <!-- Titlebar -->
-    <div class="window-titlebar" data-wails-drag>
-        <div class="titlebar-drag">
+    <div class="window-titlebar">
+        <div class="titlebar-drag" data-wails-drag>
             <div class="titlebar-title">
                 <span class="titlebar-icon">📁</span>
                 File Renamer
@@ -213,6 +213,17 @@
         </div>
     </div>
 </div>
+
+<!-- Custom Modal -->
+<div id="modal-overlay" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-icon" id="modal-icon"></div>
+        <div class="modal-title" id="modal-title"></div>
+        <div class="modal-message" id="modal-message"></div>
+        <div class="modal-buttons" id="modal-buttons"></div>
+    </div>
+</div>
+
 <script src="/src/main.js" type="module"></script>
 </body>
 </html>

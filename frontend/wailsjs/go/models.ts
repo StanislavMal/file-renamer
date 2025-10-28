@@ -5,6 +5,10 @@ export namespace main {
 	    replace: string;
 	    prefix: string;
 	    suffix: string;
+	    numbering: boolean;
+	    numberPosition: string;
+	    numberFormat: string;
+	    numberStart: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new BatchParams(source);
@@ -16,6 +20,10 @@ export namespace main {
 	        this.replace = source["replace"];
 	        this.prefix = source["prefix"];
 	        this.suffix = source["suffix"];
+	        this.numbering = source["numbering"];
+	        this.numberPosition = source["numberPosition"];
+	        this.numberFormat = source["numberFormat"];
+	        this.numberStart = source["numberStart"];
 	    }
 	}
 	export class Conflict {

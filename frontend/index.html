@@ -40,37 +40,42 @@
     <!-- Main content -->
     <div class="container">
         <div class="header">
-            <h1>Интерактивное переименование файлов</h1>
-            <p>Выберите режим работы и настройте параметры переименования</p>
+            <h1>Переименование файлов</h1>
+            <p>Выберите режим и настройте параметры</p>
         </div>
 
         <!-- Режим работы -->
         <div class="mode-selector">
-            <label>Режим работы:</label>
             <div class="mode-buttons">
-                <button data-mode="pairing" class="active" type="button">Сопоставление</button>
-                <button data-mode="batch" type="button">Пакетная обработка</button>
+                <button data-mode="pairing" class="active" type="button">
+                    <span class="mode-icon">🔗</span>
+                    Сопоставление
+                </button>
+                <button data-mode="batch" type="button">
+                    <span class="mode-icon">📦</span>
+                    Пакетная обработка
+                </button>
             </div>
         </div>
 
         <!-- Выбор папок -->
         <div class="folders-section">
-            <div class="input-group">
-                <label>Целевая папка (файлы для переименования):</label>
+            <div class="folder-row">
+                <label>Целевая папка:</label>
                 <div class="input-with-button">
-                    <input type="text" id="target-path" class="input" placeholder="Выберите папку или вставьте путь..." readonly>
-                    <button id="target-browse-btn" class="btn" type="button">Обзор...</button>
+                    <input type="text" id="target-path" class="input" placeholder="Выберите папку..." readonly>
+                    <button id="target-browse-btn" class="btn btn-compact" type="button">Обзор</button>
                 </div>
-                <small id="target-count">Файлов: 0</small>
+                <small id="target-count" class="file-count">Файлов: 0</small>
             </div>
 
-            <div class="input-group" id="source-group">
-                <label>Папка с образцами имён (источник):</label>
+            <div class="folder-row" id="source-group">
+                <label>Папка с образцами:</label>
                 <div class="input-with-button">
-                    <input type="text" id="source-path" class="input" placeholder="Выберите папку или вставьте путь..." readonly>
-                    <button id="source-browse-btn" class="btn" type="button">Обзор...</button>
+                    <input type="text" id="source-path" class="input" placeholder="Выберите папку..." readonly>
+                    <button id="source-browse-btn" class="btn btn-compact" type="button">Обзор</button>
                 </div>
-                <small id="source-count">Файлов: 0</small>
+                <small id="source-count" class="file-count">Файлов: 0</small>
             </div>
         </div>
 
@@ -79,56 +84,90 @@
             <!-- Режим сопоставления -->
             <div id="pairing-mode" class="mode-content active">
                 <div class="pairing-controls">
-                    <button id="map-in-order-btn" class="btn" type="button">Сопоставить по порядку</button>
-                    <button id="unpair-btn" class="btn" type="button">Удалить пару</button>
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="exclude-mode-check">
-                        Режим исключения
-                    </label>
+                    <button id="map-in-order-btn" class="btn btn-compact" type="button">
+                        <span>⚡</span> Сопоставить по порядку
+                    </button>
+                    <button id="unpair-btn" class="btn btn-compact" type="button">
+                        <span>✖</span> Удалить пару
+                    </button>
                 </div>
 
                 <div class="lists-container">
                     <div class="file-list-panel">
-                        <h3>Целевые файлы (<span id="target-visible-count">0</span> / <span id="target-total-count">0</span>)</h3>
-                        <div class="file-list" id="target-list"></div>
-                        <div class="list-controls">
-                            <button id="target-up-btn" class="btn-icon" type="button" title="Вверх">↑</button>
-                            <button id="target-down-btn" class="btn-icon" type="button" title="Вниз">↓</button>
+                        <div class="panel-header">
+                            <h3>Целевые файлы</h3>
+                            <span class="count-badge">
+                                <span id="target-visible-count">0</span> / <span id="target-total-count">0</span>
+                            </span>
                         </div>
+                        <div class="file-list" id="target-list" data-list="target"></div>
                     </div>
 
                     <div class="file-list-panel">
-                        <h3>Файлы-образцы (<span id="source-visible-count">0</span> / <span id="source-total-count">0</span>)</h3>
-                        <div class="file-list" id="source-list"></div>
-                        <div class="list-controls">
-                            <button id="source-up-btn" class="btn-icon" type="button" title="Вверх">↑</button>
-                            <button id="source-down-btn" class="btn-icon" type="button" title="Вниз">↓</button>
+                        <div class="panel-header">
+                            <h3>Файлы-образцы</h3>
+                            <span class="count-badge">
+                                <span id="source-visible-count">0</span> / <span id="source-total-count">0</span>
+                            </span>
                         </div>
+                        <div class="file-list" id="source-list" data-list="source"></div>
                     </div>
                 </div>
             </div>
 
             <!-- Режим пакетной обработки -->
             <div id="batch-mode" class="mode-content">
-                <div class="batch-form">
-                    <div class="input-group">
-                        <label>Найти текст:</label>
-                        <input type="text" id="batch-find" class="input" placeholder="Текст для поиска...">
+                <div class="batch-layout">
+                    <div class="batch-form">
+                        <div class="form-section">
+                            <h4>Замена текста</h4>
+                            <div class="input-group-compact">
+                                <input type="text" id="batch-find" class="input input-sm" placeholder="Найти...">
+                                <span class="arrow">→</span>
+                                <input type="text" id="batch-replace" class="input input-sm" placeholder="Заменить на...">
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4>Добавление текста</h4>
+                            <div class="input-group-compact">
+                                <input type="text" id="batch-prefix" class="input input-sm" placeholder="Префикс...">
+                            </div>
+                            <div class="input-group-compact">
+                                <input type="text" id="batch-suffix" class="input input-sm" placeholder="Суффикс (перед расширением)...">
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4>Нумерация</h4>
+                            <div class="numbering-controls">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="batch-numbering">
+                                    <span>Добавить нумерацию</span>
+                                </label>
+                                <div class="numbering-options" id="numbering-options">
+                                    <select id="batch-number-position" class="input input-sm">
+                                        <option value="prefix">В начале</option>
+                                        <option value="suffix">В конце</option>
+                                    </select>
+                                    <input type="text" id="batch-number-format" class="input input-sm" 
+                                           placeholder="000" value="000" maxlength="6"
+                                           title="Формат: 0, 00, 000 и т.д.">
+                                    <input type="number" id="batch-number-start" class="input input-sm" 
+                                           placeholder="Начать с..." value="1" min="0">
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="input-group">
-                        <label>Заменить на:</label>
-                        <input type="text" id="batch-replace" class="input" placeholder="Текст для замены...">
-                    </div>
-
-                    <div class="input-group">
-                        <label>Добавить префикс:</label>
-                        <input type="text" id="batch-prefix" class="input" placeholder="Префикс...">
-                    </div>
-
-                    <div class="input-group">
-                        <label>Добавить суффикс (перед расширением):</label>
-                        <input type="text" id="batch-suffix" class="input" placeholder="Суффикс...">
+                    <div class="batch-files-panel">
+                        <div class="panel-header">
+                            <h3>Обрабатываемые файлы</h3>
+                            <span class="count-badge">
+                                <span id="batch-visible-count">0</span> / <span id="batch-total-count">0</span>
+                            </span>
+                        </div>
+                        <div class="file-list" id="batch-list" data-list="batch"></div>
                     </div>
                 </div>
             </div>
@@ -136,7 +175,10 @@
 
         <!-- Предпросмотр -->
         <div class="preview-section">
-            <h3>Предпросмотр изменений</h3>
+            <div class="preview-header">
+                <h3>Предпросмотр</h3>
+                <span id="preview-count" class="count-badge"></span>
+            </div>
             <div id="preview-content" class="preview-content">
                 <p class="text-muted">Выберите файлы для переименования</p>
             </div>
@@ -145,16 +187,18 @@
         <!-- Действия -->
         <div class="actions">
             <button id="reset-btn" class="btn" type="button">Сброс</button>
-            <button id="rename-btn" class="btn btn-primary" type="button" disabled>Переименовать</button>
+            <button id="rename-btn" class="btn btn-primary" type="button" disabled>
+                <span>✓</span> Переименовать
+            </button>
         </div>
 
         <!-- Theme switcher -->
         <div class="theme-switcher">
-            <label>Тема оформления</label>
+            <label>Тема:</label>
             <div class="theme-buttons">
-                <button data-theme="Light" type="button">Светлая</button>
-                <button data-theme="Dark" type="button">Тёмная</button>
-                <button data-theme="System" type="button">Системная</button>
+                <button data-theme="Light" type="button" title="Светлая">☀️</button>
+                <button data-theme="Dark" type="button" title="Тёмная">🌙</button>
+                <button data-theme="System" type="button" title="Системная">⚙️</button>
             </div>
         </div>
     </div>

@@ -21,8 +21,9 @@ const state = {
     pairs: {}, // targetName -> sourceName
     selectedTarget: null,
     selectedSource: null,
-    excludeMode: false,
-    lastPlan: null
+    lastPlan: null,
+    draggedItem: null,
+    draggedList: null
 };
 
 // ========== THEME ==========
@@ -63,6 +64,7 @@ function switchMode(newMode) {
         sourceGroup.classList.remove('hidden');
     } else {
         sourceGroup.classList.add('hidden');
+        renderBatchList();
     }
     
     resetState();
@@ -78,6 +80,11 @@ async function loadTargetFiles() {
         state.targetFiles = files;
         state.visibleTargetFiles = [...files];
         renderTargetList();
+        
+        if (state.mode === 'batch') {
+            renderBatchList();
+        }
+        
         updateCounts();
         updatePreview();
     } catch (error) {
@@ -133,28 +140,7 @@ function renderTargetList() {
     list.innerHTML = '';
     
     state.visibleTargetFiles.forEach((file, index) => {
-        const item = document.createElement('div');
-        item.className = 'file-item';
-        item.dataset.index = index;
-        
-        if (state.selectedTarget === index) {
-            item.classList.add('selected');
-        }
-        
-        const isPaired = state.pairs[file.name];
-        if (isPaired) {
-            item.classList.add('paired');
-        }
-        
-        item.textContent = file.name;
-        
-        if (isPaired && state.mode === 'pairing') {
-            const info = document.createElement('small');
-            info.textContent = `→ ${computeNewName(file.name, state.pairs[file.name])}`;
-            item.appendChild(info);
-        }
-        
-        item.addEventListener('click', () => handleTargetClick(index));
+        const item = createFileItem(file, index, 'target');
         list.appendChild(item);
     });
 }
@@ -164,29 +150,94 @@ function renderSourceList() {
     list.innerHTML = '';
     
     state.visibleSourceFiles.forEach((file, index) => {
-        const item = document.createElement('div');
-        item.className = 'file-item';
-        item.dataset.index = index;
-        
-        if (state.selectedSource === index) {
-            item.classList.add('selected');
-        }
-        
-        // Check if this source is already paired
+        const item = createFileItem(file, index, 'source');
+        list.appendChild(item);
+    });
+}
+
+function renderBatchList() {
+    const list = document.getElementById('batch-list');
+    if (!list) return;
+    
+    list.innerHTML = '';
+    
+    state.visibleTargetFiles.forEach((file, index) => {
+        const item = createFileItem(file, index, 'batch');
+        list.appendChild(item);
+    });
+}
+
+function createFileItem(file, index, listType) {
+    const item = document.createElement('div');
+    item.className = 'file-item';
+    item.dataset.index = index;
+    item.dataset.listType = listType;
+    item.draggable = true;
+    
+    // Selection state
+    if (listType === 'target' && state.selectedTarget === index) {
+        item.classList.add('selected');
+    } else if (listType === 'source' && state.selectedSource === index) {
+        item.classList.add('selected');
+    }
+    
+    // Paired state
+    const isPaired = state.pairs[file.name];
+    if (isPaired && listType === 'target') {
+        item.classList.add('paired');
+    }
+    
+    // Check if source is paired
+    if (listType === 'source') {
         const pairedTarget = Object.keys(state.pairs).find(k => state.pairs[k] === file.name);
         if (pairedTarget) {
             item.classList.add('paired');
+        }
+    }
+    
+    // File name
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = file.name;
+    item.appendChild(nameSpan);
+    
+    // Additional info
+    if (isPaired && state.mode === 'pairing' && listType === 'target') {
+        const info = document.createElement('small');
+        info.textContent = `→ ${computeNewName(file.name, state.pairs[file.name])}`;
+        item.appendChild(info);
+    }
+    
+    if (listType === 'source') {
+        const pairedTarget = Object.keys(state.pairs).find(k => state.pairs[k] === file.name);
+        if (pairedTarget) {
             const info = document.createElement('small');
             info.textContent = `← ${pairedTarget}`;
-            item.appendChild(document.createTextNode(file.name));
             item.appendChild(info);
-        } else {
-            item.textContent = file.name;
         }
-        
-        item.addEventListener('click', () => handleSourceClick(index));
-        list.appendChild(item);
-    });
+    }
+    
+    // Remove button
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'file-item-remove';
+    removeBtn.innerHTML = '✕';
+    removeBtn.title = 'Исключить файл';
+    removeBtn.onclick = (e) => {
+        e.stopPropagation();
+        excludeFile(index, listType);
+    };
+    item.appendChild(removeBtn);
+    
+    // Events
+    item.addEventListener('click', () => handleFileClick(index, listType));
+    
+    // Drag events
+    item.addEventListener('dragstart', (e) => handleDragStart(e, index, listType));
+    item.addEventListener('dragend', (e) => handleDragEnd(e));
+    item.addEventListener('dragover', (e) => handleDragOver(e));
+    item.addEventListener('drop', (e) => handleDrop(e, index, listType));
+    item.addEventListener('dragleave', (e) => handleDragLeave(e));
+    
+    return item;
 }
 
 function updateCounts() {
@@ -196,29 +247,101 @@ function updateCounts() {
     document.getElementById('target-total-count').textContent = state.targetFiles.length;
     document.getElementById('source-visible-count').textContent = state.visibleSourceFiles.length;
     document.getElementById('source-total-count').textContent = state.sourceFiles.length;
+    
+    const batchVisibleCount = document.getElementById('batch-visible-count');
+    const batchTotalCount = document.getElementById('batch-total-count');
+    if (batchVisibleCount && batchTotalCount) {
+        batchVisibleCount.textContent = state.visibleTargetFiles.length;
+        batchTotalCount.textContent = state.targetFiles.length;
+    }
+}
+
+// ========== DRAG AND DROP ==========
+function handleDragStart(e, index, listType) {
+    state.draggedItem = index;
+    state.draggedList = listType;
+    e.currentTarget.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragEnd(e) {
+    e.currentTarget.classList.remove('dragging');
+    document.querySelectorAll('.file-item').forEach(item => {
+        item.classList.remove('drag-over');
+    });
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const item = e.currentTarget;
+    if (!item.classList.contains('dragging')) {
+        item.classList.add('drag-over');
+    }
+}
+
+function handleDragLeave(e) {
+    e.currentTarget.classList.remove('drag-over');
+}
+
+function handleDrop(e, targetIndex, targetListType) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drag-over');
+    
+    if (state.draggedList !== targetListType || state.draggedItem === targetIndex) {
+        return;
+    }
+    
+    const draggedIndex = state.draggedItem;
+    let list;
+    
+    if (targetListType === 'target' || targetListType === 'batch') {
+        list = state.visibleTargetFiles;
+    } else if (targetListType === 'source') {
+        list = state.visibleSourceFiles;
+    }
+    
+    // Reorder
+    const draggedFile = list[draggedIndex];
+    list.splice(draggedIndex, 1);
+    
+    // Adjust target index if needed
+    const newIndex = draggedIndex < targetIndex ? targetIndex - 1 : targetIndex;
+    list.splice(newIndex, 0, draggedFile);
+    
+    // Re-render
+    if (targetListType === 'target') {
+        renderTargetList();
+    } else if (targetListType === 'source') {
+        renderSourceList();
+    } else if (targetListType === 'batch') {
+        renderBatchList();
+    }
+    
+    updatePreview();
 }
 
 // ========== PAIRING MODE ==========
-function handleTargetClick(index) {
-    if (state.excludeMode) {
-        excludeTargetFile(index);
-        return;
+function handleFileClick(index, listType) {
+    if (listType === 'target') {
+        // Toggle selection
+        if (state.selectedTarget === index) {
+            state.selectedTarget = null;
+        } else {
+            state.selectedTarget = index;
+        }
+        renderTargetList();
+        tryCreatePair();
+    } else if (listType === 'source') {
+        // Toggle selection
+        if (state.selectedSource === index) {
+            state.selectedSource = null;
+        } else {
+            state.selectedSource = index;
+        }
+        renderSourceList();
+        tryCreatePair();
     }
-    
-    state.selectedTarget = index;
-    renderTargetList();
-    tryCreatePair();
-}
-
-function handleSourceClick(index) {
-    if (state.excludeMode) {
-        excludeSourceFile(index);
-        return;
-    }
-    
-    state.selectedSource = index;
-    renderSourceList();
-    tryCreatePair();
 }
 
 function tryCreatePair() {
@@ -250,57 +373,31 @@ function tryCreatePair() {
     updatePreview();
 }
 
-function excludeTargetFile(index) {
-    const file = state.visibleTargetFiles[index];
-    delete state.pairs[file.name];
-    state.visibleTargetFiles.splice(index, 1);
-    renderTargetList();
-    updateCounts();
-    updatePreview();
-}
-
-function excludeSourceFile(index) {
-    const file = state.visibleSourceFiles[index];
-    
-    // Remove pairing
-    Object.keys(state.pairs).forEach(key => {
-        if (state.pairs[key] === file.name) {
-            delete state.pairs[key];
+function excludeFile(index, listType) {
+    if (listType === 'target' || listType === 'batch') {
+        const file = state.visibleTargetFiles[index];
+        delete state.pairs[file.name];
+        state.visibleTargetFiles.splice(index, 1);
+        renderTargetList();
+        if (state.mode === 'batch') {
+            renderBatchList();
         }
-    });
+    } else if (listType === 'source') {
+        const file = state.visibleSourceFiles[index];
+        
+        // Remove pairing
+        Object.keys(state.pairs).forEach(key => {
+            if (state.pairs[key] === file.name) {
+                delete state.pairs[key];
+            }
+        });
+        
+        state.visibleSourceFiles.splice(index, 1);
+        renderSourceList();
+    }
     
-    state.visibleSourceFiles.splice(index, 1);
-    renderSourceList();
     updateCounts();
     updatePreview();
-}
-
-function moveTargetFile(direction) {
-    if (state.selectedTarget === null) return;
-    
-    const newIndex = state.selectedTarget + direction;
-    if (newIndex < 0 || newIndex >= state.visibleTargetFiles.length) return;
-    
-    const temp = state.visibleTargetFiles[state.selectedTarget];
-    state.visibleTargetFiles[state.selectedTarget] = state.visibleTargetFiles[newIndex];
-    state.visibleTargetFiles[newIndex] = temp;
-    
-    state.selectedTarget = newIndex;
-    renderTargetList();
-}
-
-function moveSourceFile(direction) {
-    if (state.selectedSource === null) return;
-    
-    const newIndex = state.selectedSource + direction;
-    if (newIndex < 0 || newIndex >= state.visibleSourceFiles.length) return;
-    
-    const temp = state.visibleSourceFiles[state.selectedSource];
-    state.visibleSourceFiles[state.selectedSource] = state.visibleSourceFiles[newIndex];
-    state.visibleSourceFiles[newIndex] = temp;
-    
-    state.selectedSource = newIndex;
-    renderSourceList();
 }
 
 function mapInOrder() {
@@ -363,6 +460,7 @@ function unpairSelected() {
 // ========== PREVIEW ==========
 async function updatePreview() {
     const previewContent = document.getElementById('preview-content');
+    const previewCount = document.getElementById('preview-count');
     const renameBtn = document.getElementById('rename-btn');
     
     try {
@@ -371,6 +469,7 @@ async function updatePreview() {
         if (state.mode === 'pairing') {
             if (!state.targetDir || Object.keys(state.pairs).length === 0) {
                 previewContent.innerHTML = '<p class="text-muted">Создайте пары для предпросмотра</p>';
+                previewCount.textContent = '';
                 renameBtn.disabled = true;
                 return;
             }
@@ -378,15 +477,21 @@ async function updatePreview() {
             result = await BuildPlanFromPairs(state.targetDir, state.pairs);
         } else {
             // Batch mode
+            const numberingEnabled = document.getElementById('batch-numbering').checked;
             const params = {
                 find: document.getElementById('batch-find').value,
                 replace: document.getElementById('batch-replace').value,
                 prefix: document.getElementById('batch-prefix').value,
-                suffix: document.getElementById('batch-suffix').value
+                suffix: document.getElementById('batch-suffix').value,
+                numbering: numberingEnabled,
+                numberPosition: numberingEnabled ? document.getElementById('batch-number-position').value : '',
+                numberFormat: numberingEnabled ? document.getElementById('batch-number-format').value : '',
+                numberStart: numberingEnabled ? parseInt(document.getElementById('batch-number-start').value) || 1 : 0
             };
             
-            if (!state.targetDir || (!params.find && !params.prefix && !params.suffix)) {
+            if (!state.targetDir || (!params.find && !params.prefix && !params.suffix && !params.numbering)) {
                 previewContent.innerHTML = '<p class="text-muted">Задайте параметры обработки</p>';
+                previewCount.textContent = '';
                 renameBtn.disabled = true;
                 return;
             }
@@ -400,7 +505,8 @@ async function updatePreview() {
         let html = '';
         
         if (result.operations && result.operations.length > 0) {
-            html += `<div style="margin-bottom: 16px;"><strong>Будут переименованы (${result.operations.length}):</strong></div>`;
+            previewCount.textContent = `${result.operations.length} операций`;
+            
             result.operations.forEach(op => {
                 html += `<div class="preview-op">• ${op.oldName} → ${op.newName}`;
                 if (state.mode === 'pairing' && op.sourceName) {
@@ -410,10 +516,11 @@ async function updatePreview() {
             });
         } else {
             html += '<p class="text-muted">Нет валидных переименований</p>';
+            previewCount.textContent = '';
         }
         
         if (result.conflicts && result.conflicts.length > 0) {
-            html += `<div style="margin-top: 16px; margin-bottom: 8px;"><strong style="color: var(--error);">Конфликты (${result.conflicts.length}):</strong></div>`;
+            html += `<div style="margin-top: 12px; margin-bottom: 6px;"><strong style="color: var(--error);">Конфликты (${result.conflicts.length}):</strong></div>`;
             result.conflicts.forEach(c => {
                 html += `<div class="preview-op conflict">• ${c.targetName} → ${c.newName}<br><small>${c.reason}</small></div>`;
             });
@@ -425,6 +532,7 @@ async function updatePreview() {
     } catch (error) {
         console.error('Ошибка построения плана:', error);
         previewContent.innerHTML = `<p style="color: var(--error);">Ошибка: ${error}</p>`;
+        previewCount.textContent = '';
         renameBtn.disabled = true;
     }
 }
@@ -474,6 +582,9 @@ function resetState() {
     
     renderTargetList();
     renderSourceList();
+    if (state.mode === 'batch') {
+        renderBatchList();
+    }
     updateCounts();
     updatePreview();
     
@@ -482,6 +593,10 @@ function resetState() {
         document.getElementById('batch-replace').value = '';
         document.getElementById('batch-prefix').value = '';
         document.getElementById('batch-suffix').value = '';
+        document.getElementById('batch-numbering').checked = false;
+        document.getElementById('numbering-options').classList.remove('active');
+        document.getElementById('batch-number-start').value = '1';
+        document.getElementById('batch-number-format').value = '000';
     }
 }
 
@@ -526,8 +641,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Mode switching
     document.querySelector('.mode-buttons').addEventListener('click', (e) => {
-        if (e.target.tagName === 'BUTTON') {
-            switchMode(e.target.dataset.mode);
+        if (e.target.tagName === 'BUTTON' || e.target.parentElement.tagName === 'BUTTON') {
+            const btn = e.target.tagName === 'BUTTON' ? e.target : e.target.parentElement;
+            switchMode(btn.dataset.mode);
         }
     });
     
@@ -538,24 +654,28 @@ document.addEventListener('DOMContentLoaded', () => {
     // Pairing controls
     document.getElementById('map-in-order-btn').addEventListener('click', mapInOrder);
     document.getElementById('unpair-btn').addEventListener('click', unpairSelected);
-    document.getElementById('exclude-mode-check').addEventListener('change', (e) => {
-        state.excludeMode = e.target.checked;
-        state.selectedTarget = null;
-        state.selectedSource = null;
-        renderTargetList();
-        renderSourceList();
-    });
-    
-    // List controls
-    document.getElementById('target-up-btn').addEventListener('click', () => moveTargetFile(-1));
-    document.getElementById('target-down-btn').addEventListener('click', () => moveTargetFile(1));
-    document.getElementById('source-up-btn').addEventListener('click', () => moveSourceFile(-1));
-    document.getElementById('source-down-btn').addEventListener('click', () => moveSourceFile(1));
     
     // Batch inputs
     ['batch-find', 'batch-replace', 'batch-prefix', 'batch-suffix'].forEach(id => {
         document.getElementById(id).addEventListener('input', updatePreview);
     });
+    
+    // Numbering controls
+    const numberingCheckbox = document.getElementById('batch-numbering');
+    const numberingOptions = document.getElementById('numbering-options');
+    
+    numberingCheckbox.addEventListener('change', (e) => {
+        if (e.target.checked) {
+            numberingOptions.classList.add('active');
+        } else {
+            numberingOptions.classList.remove('active');
+        }
+        updatePreview();
+    });
+    
+    document.getElementById('batch-number-position').addEventListener('change', updatePreview);
+    document.getElementById('batch-number-format').addEventListener('input', updatePreview);
+    document.getElementById('batch-number-start').addEventListener('input', updatePreview);
     
     // Actions
     document.getElementById('reset-btn').addEventListener('click', resetState);

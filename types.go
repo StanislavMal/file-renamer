@@ -31,10 +31,14 @@ type PlanResult struct {
 
 // BatchParams - параметры пакетной обработки
 type BatchParams struct {
-	Find    string `json:"find"`
-	Replace string `json:"replace"`
-	Prefix  string `json:"prefix"`
-	Suffix  string `json:"suffix"`
+	Find           string `json:"find"`
+	Replace        string `json:"replace"`
+	Prefix         string `json:"prefix"`
+	Suffix         string `json:"suffix"`
+	Numbering      bool   `json:"numbering"`
+	NumberPosition string `json:"numberPosition"` // "prefix" or "suffix"
+	NumberFormat   string `json:"numberFormat"`   // "0", "00", "000", etc.
+	NumberStart    int    `json:"numberStart"`
 }
 
 // ExecuteResult - результат выполнения

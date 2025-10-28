@@ -199,7 +199,7 @@ func (a *App) BuildPlanFromBatch(targetDir string, files []string, params BatchP
 		Conflicts:  []Conflict{},
 	}
 
-	if targetDir == "" || (params.Find == "" && params.Prefix == "" && params.Suffix == "") {
+	if targetDir == "" || (params.Find == "" && params.Prefix == "" && params.Suffix == "" && !params.Numbering) {
 		return result
 	}
 
@@ -213,6 +213,21 @@ func (a *App) BuildPlanFromBatch(targetDir string, files []string, params BatchP
 	var candidates []candidate
 	oldPaths := make(map[string]struct{})
 
+	// Validate number format
+	numberPadding := 0
+	if params.Numbering && params.NumberFormat != "" {
+		numberPadding = len(params.NumberFormat)
+		// Check if format is valid (only zeros)
+		for _, ch := range params.NumberFormat {
+			if ch != '0' {
+				numberPadding = 3 // default to 3 if invalid
+				break
+			}
+		}
+	}
+
+	currentNumber := params.NumberStart
+
 	for _, fileName := range files {
 		newName := fileName
 
@@ -221,11 +236,26 @@ func (a *App) BuildPlanFromBatch(targetDir string, files []string, params BatchP
 			newName = strings.ReplaceAll(newName, params.Find, params.Replace)
 		}
 
-		// Добавляем префикс и суффикс
+		// Разделяем имя и расширение
 		ext := filepath.Ext(newName)
 		base := strings.TrimSuffix(newName, ext)
-		newBase := params.Prefix + base + params.Suffix
-		newName = newBase + ext
+
+		// Добавляем нумерацию
+		var numberStr string
+		if params.Numbering {
+			numberStr = fmt.Sprintf("%0*d", numberPadding, currentNumber)
+			currentNumber++
+
+			if params.NumberPosition == "prefix" {
+				base = numberStr + "_" + base
+			} else {
+				base = base + "_" + numberStr
+			}
+		}
+
+		// Добавляем префикс и суффикс
+		base = params.Prefix + base + params.Suffix
+		newName = base + ext
 
 		if newName == fileName {
 			continue // Имя не изменилось

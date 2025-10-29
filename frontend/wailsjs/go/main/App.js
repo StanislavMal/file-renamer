@@ -21,15 +21,3 @@ export function GetFilesInDirectory(arg1) {
 export function SelectFolder(arg1) {
   return window['go']['main']['App']['SelectFolder'](arg1);
 }
-
-export function WindowClose() {
-  return window['go']['main']['App']['WindowClose']();
-}
-
-export function WindowMinimize() {
-  return window['go']['main']['App']['WindowMinimize']();
-}
-
-export function WindowToggleMaximize() {
-  return window['go']['main']['App']['WindowToggleMaximize']();
-}

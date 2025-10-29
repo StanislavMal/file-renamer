@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	goruntime "runtime" // Алиас для встроенного runtime
+	goruntime "runtime"
 	"sort"
 	"strings"
 	"time"
@@ -23,20 +23,6 @@ func NewApp() *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-}
-
-// ============ Управление окном ============
-
-func (a *App) WindowMinimize() {
-	runtime.WindowMinimise(a.ctx)
-}
-
-func (a *App) WindowToggleMaximize() {
-	runtime.WindowToggleMaximise(a.ctx)
-}
-
-func (a *App) WindowClose() {
-	runtime.Quit(a.ctx)
 }
 
 // ============ Работа с файлами ============

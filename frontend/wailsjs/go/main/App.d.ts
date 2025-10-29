@@ -11,9 +11,3 @@ export function ExecuteRename(arg1:Array<main.RenameOp>):Promise<main.ExecuteRes
 export function GetFilesInDirectory(arg1:string):Promise<Array<main.FileInfo>>;
 
 export function SelectFolder(arg1:string):Promise<string>;
-
-export function WindowClose():Promise<void>;
-
-export function WindowMinimize():Promise<void>;
-
-export function WindowToggleMaximize():Promise<void>;

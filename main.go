@@ -23,8 +23,6 @@ func main() {
 		MinWidth:  1000,
 		MinHeight: 700,
 
-		Frameless: true,
-
 		Windows: &windows.Options{
 			WebviewIsTransparent: false,
 			WindowIsTranslucent:  false,
@@ -33,12 +31,12 @@ func main() {
 
 		Mac: &mac.Options{
 			TitleBar: &mac.TitleBar{
-				TitlebarAppearsTransparent: true,
-				HideTitle:                  true,
+				TitlebarAppearsTransparent: false,
+				HideTitle:                  false,
 				HideTitleBar:               false,
-				FullSizeContent:            true,
+				FullSizeContent:            false,
 				UseToolbar:                 false,
-				HideToolbarSeparator:       true,
+				HideToolbarSeparator:       false,
 			},
 			WebviewIsTransparent: false,
 			WindowIsTranslucent:  false,

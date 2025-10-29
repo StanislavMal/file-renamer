@@ -1,7 +1,4 @@
 import {
-    WindowMinimize,
-    WindowToggleMaximize,
-    WindowClose,
     GetFilesInDirectory,
     SelectFolder,
     BuildPlanFromPairs,
@@ -404,7 +401,7 @@ function handleFileClick(e, index, listType) {
     }
 }
 
-// ========== DRAG AND DROP - ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ ==========
+// ========== DRAG AND DROP ==========
 function handleDragStart(e, index, listType) {
     const selectedSet = listType === 'target' || listType === 'batch' ? state.selectedTarget : state.selectedSource;
     
@@ -456,7 +453,6 @@ function handleDragOver(e, targetIndex, targetListType) {
     }
 }
 
-// Обработка dragover на контейнере списка (когда курсор между элементами)
 function handleListDragOver(e, listType) {
     e.preventDefault();
     
@@ -493,7 +489,6 @@ function handleListDragOver(e, listType) {
     }
 }
 
-// НОВАЯ ФУНКЦИЯ: Обработка drop на контейнере списка
 function handleListDrop(e, listType) {
     e.preventDefault();
     e.stopPropagation();
@@ -509,7 +504,6 @@ function handleListDrop(e, listType) {
     
     if (items.length === 0) return;
     
-    // Найти ближайший элемент и определить куда вставлять
     let closestItem = null;
     let closestDistance = Infinity;
     let insertBefore = true;
@@ -531,7 +525,6 @@ function handleListDrop(e, listType) {
     const targetIndex = parseInt(closestItem.dataset.index);
     const insertIndex = insertBefore ? targetIndex : targetIndex + 1;
     
-    // Выполняем вставку
     performDrop(insertIndex, listType);
 }
 
@@ -575,7 +568,6 @@ function handleDrop(e, targetIndex, targetListType) {
     performDrop(insertIndex, targetListType);
 }
 
-// НОВАЯ ФУНКЦИЯ: Общая логика выполнения drop
 function performDrop(insertIndex, listType) {
     let list;
     if (listType === 'target' || listType === 'batch') {
@@ -586,7 +578,6 @@ function performDrop(insertIndex, listType) {
     
     const draggedFiles = state.draggedItems.map(idx => list[idx]);
     
-    // Удаляем перетаскиваемые элементы (в обратном порядке)
     const sortedIndices = [...state.draggedItems].sort((a, b) => b - a);
     for (const idx of sortedIndices) {
         list.splice(idx, 1);
@@ -595,17 +586,14 @@ function performDrop(insertIndex, listType) {
         }
     }
     
-    // Вставляем в новую позицию
     list.splice(insertIndex, 0, ...draggedFiles);
     
-    // Обновляем выделение
     const selectedSet = listType === 'target' || listType === 'batch' ? state.selectedTarget : state.selectedSource;
     selectedSet.clear();
     for (let i = 0; i < draggedFiles.length; i++) {
         selectedSet.add(insertIndex + i);
     }
     
-    // Перерисовываем
     if (listType === 'target') {
         renderTargetList();
     } else if (listType === 'source') {
@@ -1036,19 +1024,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return false;
     });
     
-    // Window controls
-    document.getElementById('minimize-btn').addEventListener('click', () => {
-        WindowMinimize().catch(console.error);
-    });
-    
-    document.getElementById('maximize-btn').addEventListener('click', () => {
-        WindowToggleMaximize().catch(console.error);
-    });
-    
-    document.getElementById('close-btn').addEventListener('click', () => {
-        WindowClose().catch(console.error);
-    });
-    
     // Theme
     const savedTheme = localStorage.getItem('theme') || 'Light';
     setTheme(savedTheme);
@@ -1080,7 +1055,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Pairing controls
     document.getElementById('map-in-order-btn').addEventListener('click', mapInOrder);
     
-    // ИСПРАВЛЕНИЕ: Добавляем обработчики dragover И drop на контейнеры списков
+    // Drag and drop на контейнеры списков
     const targetList = document.getElementById('target-list');
     const sourceList = document.getElementById('source-list');
     const batchList = document.getElementById('batch-list');

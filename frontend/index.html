@@ -29,6 +29,15 @@
                     Пакетная обработка
                 </button>
             </div>
+            
+            <!-- Theme switcher moved here -->
+            <div class="theme-switcher">
+                <div class="theme-buttons">
+                    <button data-theme="Light" type="button" title="Светлая">☀️</button>
+                    <button data-theme="Dark" type="button" title="Тёмная">🌙</button>
+                    <button data-theme="System" type="button" title="Системная">⚙️</button>
+                </div>
+            </div>
         </div>
 
         <!-- Выбор папок -->
@@ -36,7 +45,7 @@
             <div class="folder-row">
                 <label>Целевая папка:</label>
                 <div class="input-with-button">
-                    <input type="text" id="target-path" class="input" placeholder="Выберите папку..." readonly>
+                    <input type="text" id="target-path" class="input" placeholder="Выберите папку или вставьте путь...">
                     <button id="target-browse-btn" class="btn btn-compact" type="button">Обзор</button>
                 </div>
                 <small id="target-count" class="file-count">Файлов: 0</small>
@@ -45,7 +54,7 @@
             <div class="folder-row" id="source-group">
                 <label>Папка с образцами:</label>
                 <div class="input-with-button">
-                    <input type="text" id="source-path" class="input" placeholder="Выберите папку..." readonly>
+                    <input type="text" id="source-path" class="input" placeholder="Выберите папку или вставьте путь...">
                     <button id="source-browse-btn" class="btn btn-compact" type="button">Обзор</button>
                 </div>
                 <small id="source-count" class="file-count">Файлов: 0</small>
@@ -179,15 +188,6 @@
             </div>
             <div id="preview-content" class="preview-content">
                 <p class="text-muted">Выберите файлы для переименования</p>
-            </div>
-        </div>
-
-        <!-- Theme switcher -->
-        <div class="theme-switcher">
-            <div class="theme-buttons">
-                <button data-theme="Light" type="button" title="Светлая">☀️</button>
-                <button data-theme="Dark" type="button" title="Тёмная">🌙</button>
-                <button data-theme="System" type="button" title="Системная">⚙️</button>
             </div>
         </div>
     </div>

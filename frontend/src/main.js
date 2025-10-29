@@ -233,6 +233,23 @@ async function selectSourceFolder() {
     }
 }
 
+// Загрузка папки по введенному пути
+async function loadTargetFromInput() {
+    const path = document.getElementById('target-path').value.trim();
+    if (path && path !== state.targetDir) {
+        state.targetDir = path;
+        await loadTargetFiles();
+    }
+}
+
+async function loadSourceFromInput() {
+    const path = document.getElementById('source-path').value.trim();
+    if (path && path !== state.sourceDir) {
+        state.sourceDir = path;
+        await loadSourceFiles();
+    }
+}
+
 // ========== RENDERING ==========
 function renderTargetList() {
     const list = document.getElementById('target-list');
@@ -959,6 +976,7 @@ async function executeRename() {
         }
         updateCounts();
         
+        // Очищаем предпросмотр без показа конфликтов
         const previewContent = document.getElementById('preview-content');
         const previewCount = document.getElementById('preview-count');
         previewContent.innerHTML = '<p class="text-muted">Выберите файлы для переименования</p>';
@@ -1051,6 +1069,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // Folder selection
     document.getElementById('target-browse-btn').addEventListener('click', selectTargetFolder);
     document.getElementById('source-browse-btn').addEventListener('click', selectSourceFolder);
+    
+    // Manual path input with Enter key
+    const targetPathInput = document.getElementById('target-path');
+    const sourcePathInput = document.getElementById('source-path');
+    
+    targetPathInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            loadTargetFromInput();
+        }
+    });
+    
+    sourcePathInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            loadSourceFromInput();
+        }
+    });
     
     // Pairing controls
     document.getElementById('map-in-order-btn').addEventListener('click', mapInOrder);

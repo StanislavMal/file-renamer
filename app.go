@@ -114,7 +114,7 @@ func (a *App) BuildPlanFromPairs(targetDir string, pairs map[string]string) Plan
 		})
 	}
 
-	// Проверяем конфликты дублирования
+	// Проверяем конфликты дублирования (только для файлов с одинаковым расширением)
 	invalid := make(map[string]string)
 	seenNew := make(map[string]string)
 
@@ -151,13 +151,19 @@ func (a *App) BuildPlanFromPairs(targetDir string, pairs map[string]string) Plan
 
 		if fi, err := os.Stat(c.newPath); err == nil && fi.Mode().IsRegular() {
 			if _, willBeRenamed := oldPaths[normalizePathForFS(c.newPath)]; !willBeRenamed {
-				result.Conflicts = append(result.Conflicts, Conflict{
-					TargetName: c.targetName,
-					SourceName: c.sourceName,
-					NewName:    c.newName,
-					Reason:     "в целевой папке уже есть файл с таким именем",
-				})
-				continue
+				// Проверяем, совпадают ли расширения
+				oldExt := strings.ToLower(filepath.Ext(c.oldPath))
+				newExt := strings.ToLower(filepath.Ext(c.newPath))
+
+				if oldExt == newExt {
+					result.Conflicts = append(result.Conflicts, Conflict{
+						TargetName: c.targetName,
+						SourceName: c.sourceName,
+						NewName:    c.newName,
+						Reason:     "в целевой папке уже есть файл с таким именем",
+					})
+					continue
+				}
 			}
 		}
 
@@ -284,7 +290,7 @@ func (a *App) BuildPlanFromBatch(targetDir string, files []string, params BatchP
 		})
 	}
 
-	// Проверяем конфликты
+	// Проверяем конфликты (только для файлов с одинаковым расширением)
 	invalid := make(map[string]string)
 	seenNew := make(map[string]string)
 
@@ -321,13 +327,19 @@ func (a *App) BuildPlanFromBatch(targetDir string, files []string, params BatchP
 
 		if fi, err := os.Stat(c.newPath); err == nil && fi.Mode().IsRegular() {
 			if _, willBeRenamed := oldPaths[normalizePathForFS(c.newPath)]; !willBeRenamed {
-				result.Conflicts = append(result.Conflicts, Conflict{
-					TargetName: c.oldName,
-					SourceName: "[Пакетная обработка]",
-					NewName:    c.newName,
-					Reason:     "в целевой папке уже есть файл с таким именем",
-				})
-				continue
+				// Проверяем, совпадают ли расширения
+				oldExt := strings.ToLower(filepath.Ext(c.oldPath))
+				newExt := strings.ToLower(filepath.Ext(c.newPath))
+
+				if oldExt == newExt {
+					result.Conflicts = append(result.Conflicts, Conflict{
+						TargetName: c.oldName,
+						SourceName: "[Пакетная обработка]",
+						NewName:    c.newName,
+						Reason:     "в целевой папке уже есть файл с таким именем",
+					})
+					continue
+				}
 			}
 		}
 

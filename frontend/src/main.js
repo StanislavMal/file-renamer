@@ -957,11 +957,7 @@ async function executeRename() {
             );
         }
         
-        await loadTargetFiles();
-        if (state.mode === 'pairing') {
-            await loadSourceFiles();
-        }
-        
+        // Очищаем состояние ДО перезагрузки файлов
         state.pairs = {};
         state.selectedTarget.clear();
         state.selectedSource.clear();
@@ -969,6 +965,13 @@ async function executeRename() {
         state.lastClickedSource = null;
         state.lastPlan = null;
         
+        // Теперь перезагружаем файлы
+        await loadTargetFiles();
+        if (state.mode === 'pairing') {
+            await loadSourceFiles();
+        }
+        
+        // Перерисовываем списки
         renderTargetList();
         renderSourceList();
         if (state.mode === 'batch') {
@@ -976,7 +979,7 @@ async function executeRename() {
         }
         updateCounts();
         
-        // Очищаем предпросмотр без показа конфликтов
+        // Очищаем предпросмотр
         const previewContent = document.getElementById('preview-content');
         const previewCount = document.getElementById('preview-count');
         previewContent.innerHTML = '<p class="text-muted">Выберите файлы для переименования</p>';

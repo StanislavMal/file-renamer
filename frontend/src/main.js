@@ -1007,6 +1007,7 @@ async function updatePreview() {
             
             result = await BuildPlanFromPairs(state.targetDir, state.pairs);
         } else {
+            // Batch режим
             const numberingEnabled = document.getElementById('batch-numbering').checked;
             const params = {
                 find: document.getElementById('batch-find').value,
@@ -1033,12 +1034,36 @@ async function updatePreview() {
                 return;
             }
             
-            // Создаем список имен файлов с учетом ручных переименований
-            const fileNames = state.visibleTargetFiles.map(f => 
-                state.manualRenames[f.name] || f.name
-            );
+            // Разделяем файлы на те, которые имеют ручные переименования, и остальные
+            const filesForBatch = [];
+            const manualRenameOps = [];
             
-            result = await BuildPlanFromBatch(state.targetDir, fileNames, params);
+            state.visibleTargetFiles.forEach(file => {
+                if (state.manualRenames[file.name]) {
+                    // Файл имеет ручное переименование
+                    manualRenameOps.push({
+                        oldPath: file.path,
+                        newPath: file.path.replace(file.name, state.manualRenames[file.name]),
+                        oldName: file.name,
+                        newName: state.manualRenames[file.name]
+                    });
+                } else {
+                    // Файл будет обработан batch параметрами
+                    filesForBatch.push(file.name);
+                }
+            });
+            
+            // Получаем результат batch обработки
+            let batchResult = { operations: [], conflicts: [] };
+            if (hasParams && filesForBatch.length > 0) {
+                batchResult = await BuildPlanFromBatch(state.targetDir, filesForBatch, params);
+            }
+            
+            // Объединяем результаты
+            result = {
+                operations: [...manualRenameOps, ...batchResult.operations],
+                conflicts: batchResult.conflicts
+            };
         }
         
         state.lastPlan = result;
@@ -1052,6 +1077,10 @@ async function updatePreview() {
                 html += `<div class="preview-op">• ${op.oldName} → ${op.newName}`;
                 if (state.mode === 'pairing' && op.sourceName) {
                     html += ` <small>(источник: ${op.sourceName})</small>`;
+                }
+                // Помечаем ручные переименования
+                if (state.mode === 'batch' && state.manualRenames[op.oldName]) {
+                    html += ` <small style="color: var(--accent);">(вручную)</small>`;
                 }
                 html += `</div>`;
             });

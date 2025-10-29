@@ -11,6 +11,7 @@ export namespace main {
 	    numberPosition: string;
 	    numberFormat: string;
 	    numberStart: number;
+	    numberSeparator: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new BatchParams(source);
@@ -28,6 +29,7 @@ export namespace main {
 	        this.numberPosition = source["numberPosition"];
 	        this.numberFormat = source["numberFormat"];
 	        this.numberStart = source["numberStart"];
+	        this.numberSeparator = source["numberSeparator"];
 	    }
 	}
 	export class Conflict {

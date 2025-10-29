@@ -24,7 +24,9 @@ const state = {
     draggedItems: null,
     draggedList: null,
     dropIndicator: null,
-    autoScrollInterval: null
+    autoScrollInterval: null,
+    editingFileIndex: null,  // Индекс редактируемого файла
+    manualRenames: {}  // Ручные переименования для batch режима
 };
 
 // ========== CUSTOM MODAL ========== 
@@ -315,23 +317,79 @@ function createFileItem(file, index, listType) {
     const contentWrapper = document.createElement('div');
     contentWrapper.className = 'file-item-content';
     
-    const nameSpan = document.createElement('span');
-    nameSpan.className = 'file-item-name';
-    nameSpan.textContent = file.name;
-    contentWrapper.appendChild(nameSpan);
+    // Проверяем, редактируется ли этот файл
+    const isEditing = state.editingFileIndex === index && listType === 'batch';
     
-    if (isPaired && state.mode === 'pairing' && listType === 'target') {
-        const info = document.createElement('small');
-        info.textContent = `→ ${computeNewName(file.name, state.pairs[file.name])}`;
-        contentWrapper.appendChild(info);
-    }
-    
-    if (listType === 'source') {
-        const pairedTarget = Object.keys(state.pairs).find(k => state.pairs[k] === file.name);
-        if (pairedTarget) {
+    if (isEditing) {
+        const editInput = document.createElement('input');
+        editInput.type = 'text';
+        editInput.className = 'file-item-edit-input';
+        editInput.value = state.manualRenames[file.name] || file.name;
+        editInput.dataset.originalName = file.name;
+        
+        // Выделяем имя без расширения
+        const ext = file.name.lastIndexOf('.');
+        if (ext > 0) {
+            setTimeout(() => {
+                editInput.focus();
+                editInput.setSelectionRange(0, ext);
+            }, 0);
+        } else {
+            setTimeout(() => {
+                editInput.focus();
+                editInput.select();
+            }, 0);
+        }
+        
+        // Обработчики для поля редактирования
+        editInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                saveManualRename(index, editInput.value, file.name);
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelEdit();
+            }
+        });
+        
+        editInput.addEventListener('blur', (e) => {
+            // Небольшая задержка, чтобы обработать клики по другим элементам
+            setTimeout(() => {
+                if (state.editingFileIndex === index) {
+                    saveManualRename(index, editInput.value, file.name);
+                }
+            }, 100);
+        });
+        
+        contentWrapper.appendChild(editInput);
+    } else {
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'file-item-name';
+        
+        // Отображаем ручное переименование или оригинальное имя
+        const displayName = state.manualRenames[file.name] || file.name;
+        nameSpan.textContent = displayName;
+        
+        // Если есть ручное переименование, показываем индикатор
+        if (state.manualRenames[file.name]) {
+            nameSpan.classList.add('manually-renamed');
+        }
+        
+        contentWrapper.appendChild(nameSpan);
+        
+        if (isPaired && state.mode === 'pairing' && listType === 'target') {
             const info = document.createElement('small');
-            info.textContent = `← ${pairedTarget}`;
+            info.textContent = `→ ${computeNewName(file.name, state.pairs[file.name])}`;
             contentWrapper.appendChild(info);
+        }
+        
+        if (listType === 'source') {
+            const pairedTarget = Object.keys(state.pairs).find(k => state.pairs[k] === file.name);
+            if (pairedTarget) {
+                const info = document.createElement('small');
+                info.textContent = `← ${pairedTarget}`;
+                contentWrapper.appendChild(info);
+            }
         }
     }
     
@@ -348,6 +406,7 @@ function createFileItem(file, index, listType) {
     item.appendChild(removeBtn);
     
     item.addEventListener('click', (e) => handleFileClick(e, index, listType));
+    item.addEventListener('contextmenu', (e) => handleFileContextMenu(e, index, listType));
     item.addEventListener('dragstart', (e) => handleDragStart(e, index, listType));
     item.addEventListener('dragend', (e) => handleDragEnd(e));
     item.addEventListener('dragover', (e) => handleDragOver(e, index, listType));
@@ -372,8 +431,62 @@ function updateCounts() {
     }
 }
 
+// ========== MANUAL RENAME ==========
+function handleFileContextMenu(e, index, listType) {
+    e.preventDefault();
+    
+    // Ручное переименование доступно только в batch режиме
+    if (state.mode === 'batch' && listType === 'batch') {
+        startEdit(index);
+    }
+    
+    return false;
+}
+
+function startEdit(index) {
+    state.editingFileIndex = index;
+    renderBatchList();
+}
+
+function cancelEdit() {
+    state.editingFileIndex = null;
+    renderBatchList();
+}
+
+function saveManualRename(index, newName, originalName) {
+    const trimmedName = newName.trim();
+    
+    if (trimmedName === '') {
+        // Пустое имя - отменяем редактирование
+        cancelEdit();
+        return;
+    }
+    
+    if (trimmedName === originalName) {
+        // Имя не изменилось - удаляем из ручных переименований
+        delete state.manualRenames[originalName];
+    } else {
+        // Сохраняем новое имя
+        state.manualRenames[originalName] = trimmedName;
+    }
+    
+    state.editingFileIndex = null;
+    renderBatchList();
+    updatePreview();
+}
+
 // ========== SELECTION ==========
 function handleFileClick(e, index, listType) {
+    // Если клик по полю редактирования, не обрабатываем
+    if (e.target.classList.contains('file-item-edit-input')) {
+        return;
+    }
+    
+    // Если в режиме редактирования и клик по другому файлу
+    if (state.editingFileIndex !== null && state.editingFileIndex !== index) {
+        cancelEdit();
+    }
+    
     const selectedSet = listType === 'target' || listType === 'batch' ? state.selectedTarget : state.selectedSource;
     const lastClicked = listType === 'target' || listType === 'batch' ? state.lastClickedTarget : state.lastClickedSource;
     
@@ -728,6 +841,7 @@ function excludeFile(index, listType) {
             indicesToRemove.forEach(idx => {
                 const file = state.visibleTargetFiles[idx];
                 delete state.pairs[file.name];
+                delete state.manualRenames[file.name];
             });
             
             indicesToRemove.forEach(idx => {
@@ -738,6 +852,7 @@ function excludeFile(index, listType) {
         } else {
             const file = state.visibleTargetFiles[index];
             delete state.pairs[file.name];
+            delete state.manualRenames[file.name];
             state.visibleTargetFiles.splice(index, 1);
             state.selectedTarget.delete(index);
             
@@ -869,18 +984,26 @@ async function updatePreview() {
                 numbering: numberingEnabled,
                 numberPosition: numberingEnabled ? document.getElementById('batch-number-position').value : '',
                 numberFormat: numberingEnabled ? document.getElementById('batch-number-format').value : '',
-                numberStart: numberingEnabled ? parseInt(document.getElementById('batch-number-start').value) || 1 : 0
+                numberStart: numberingEnabled ? parseInt(document.getElementById('batch-number-start').value) || 1 : 0,
+                numberSeparator: numberingEnabled ? document.getElementById('batch-number-separator').value : ''
             };
             
-            if (!state.targetDir || (!params.find && !params.prefix && !params.suffix && 
-                !params.removeFromStart && !params.removeFromEnd && !params.numbering)) {
-                previewContent.innerHTML = '<p class="text-muted">Задайте параметры обработки</p>';
+            const hasManualRenames = Object.keys(state.manualRenames).length > 0;
+            const hasParams = params.find || params.prefix || params.suffix || 
+                params.removeFromStart || params.removeFromEnd || params.numbering;
+            
+            if (!state.targetDir || (!hasParams && !hasManualRenames)) {
+                previewContent.innerHTML = '<p class="text-muted">Задайте параметры обработки или переименуйте файлы вручную</p>';
                 previewCount.textContent = '';
                 if (batchRenameBtn) batchRenameBtn.disabled = true;
                 return;
             }
             
-            const fileNames = state.visibleTargetFiles.map(f => f.name);
+            // Создаем список имен файлов с учетом ручных переименований
+            const fileNames = state.visibleTargetFiles.map(f => 
+                state.manualRenames[f.name] || f.name
+            );
+            
             result = await BuildPlanFromBatch(state.targetDir, fileNames, params);
         }
         
@@ -964,6 +1087,8 @@ async function executeRename() {
         state.lastClickedTarget = null;
         state.lastClickedSource = null;
         state.lastPlan = null;
+        state.manualRenames = {};
+        state.editingFileIndex = null;
         
         // Теперь перезагружаем файлы
         await loadTargetFiles();
@@ -1006,6 +1131,8 @@ function resetState() {
     state.visibleTargetFiles = [...state.targetFiles];
     state.visibleSourceFiles = [...state.sourceFiles];
     state.lastPlan = null;
+    state.manualRenames = {};
+    state.editingFileIndex = null;
     
     renderTargetList();
     renderSourceList();
@@ -1026,6 +1153,7 @@ function resetState() {
         document.getElementById('numbering-options').classList.remove('active');
         document.getElementById('batch-number-start').value = '1';
         document.getElementById('batch-number-format').value = '000';
+        document.getElementById('batch-number-separator').value = '_';
     }
 }
 
@@ -1039,10 +1167,30 @@ function computeNewName(targetName, sourceName) {
 
 // ========== INITIALIZATION ==========
 document.addEventListener('DOMContentLoaded', () => {
-    // Отключаем контекстное меню
+    // Глобальный обработчик кликов для выхода из режима редактирования
+    document.addEventListener('click', (e) => {
+        // Если клик не по полю редактирования и мы в режиме редактирования
+        if (state.editingFileIndex !== null && !e.target.classList.contains('file-item-edit-input')) {
+            // Проверяем, что клик не по файлу, который редактируется
+            const clickedItem = e.target.closest('.file-item');
+            if (!clickedItem || parseInt(clickedItem.dataset.index) !== state.editingFileIndex) {
+                const editInput = document.querySelector('.file-item-edit-input');
+                if (editInput) {
+                    const originalName = editInput.dataset.originalName;
+                    saveManualRename(state.editingFileIndex, editInput.value, originalName);
+                } else {
+                    cancelEdit();
+                }
+            }
+        }
+    });
+    
+    // Отключаем стандартное контекстное меню только вне области редактирования
     document.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        return false;
+        if (!e.target.classList.contains('file-item-edit-input')) {
+            e.preventDefault();
+            return false;
+        }
     });
     
     // Theme
@@ -1116,8 +1264,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Batch inputs
     ['batch-find', 'batch-replace', 'batch-prefix', 'batch-suffix', 
-     'batch-remove-start', 'batch-remove-end'].forEach(id => {
-        document.getElementById(id).addEventListener('input', updatePreview);
+     'batch-remove-start', 'batch-remove-end', 'batch-number-separator'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('input', updatePreview);
+        }
     });
     
     // Numbering controls

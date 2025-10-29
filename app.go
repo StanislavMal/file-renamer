@@ -258,10 +258,19 @@ func (a *App) BuildPlanFromBatch(targetDir string, files []string, params BatchP
 			numberStr := fmt.Sprintf("%0*d", numberPadding, currentNumber)
 			currentNumber++
 
+			separator := params.NumberSeparator
 			if params.NumberPosition == "prefix" {
-				base = numberStr + "_" + base
+				if separator != "" {
+					base = numberStr + separator + base
+				} else {
+					base = numberStr + base
+				}
 			} else {
-				base = base + "_" + numberStr
+				if separator != "" {
+					base = base + separator + numberStr
+				} else {
+					base = base + numberStr
+				}
 			}
 		}
 

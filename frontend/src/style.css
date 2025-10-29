@@ -519,6 +519,18 @@ body::before {
     word-break: break-all;
 }
 
+.file-item-name.manually-renamed {
+    color: var(--accent);
+    font-weight: 500;
+    position: relative;
+}
+
+.file-item-name.manually-renamed::before {
+    content: '✎ ';
+    opacity: 0.7;
+    font-size: 0.9em;
+}
+
 .file-item:hover .file-item-number {
     opacity: 0.7;
     color: var(--text-secondary);
@@ -589,6 +601,25 @@ body::before {
     background: linear-gradient(135deg, #fb923c 0%, #f97316 100%);
     transform: translateY(-50%) scale(1.15);
     box-shadow: 0 4px 8px rgba(245, 158, 11, 0.4);
+}
+
+/* ========== MANUAL RENAME INPUT ========== */
+.file-item-edit-input {
+    width: 100%;
+    padding: 4px 8px;
+    background: var(--surface);
+    border: 2px solid var(--accent);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    color: var(--text-primary);
+    font-family: var(--font-family);
+    outline: none;
+    box-shadow: var(--shadow-focus);
+}
+
+.file-item-edit-input:focus {
+    border-color: var(--accent-hover);
+    box-shadow: 0 0 0 3px rgba(91, 143, 185, 0.2);
 }
 
 /* ========== DROP INDICATOR ========== */

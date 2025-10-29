@@ -41,6 +41,7 @@ type BatchParams struct {
 	NumberPosition  string `json:"numberPosition"` // "prefix" or "suffix"
 	NumberFormat    string `json:"numberFormat"`   // "0", "00", "000", etc.
 	NumberStart     int    `json:"numberStart"`
+	NumberSeparator string `json:"numberSeparator"` // разделитель для нумерации
 }
 
 // ExecuteResult - результат выполнения

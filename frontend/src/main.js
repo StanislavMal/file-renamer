@@ -290,7 +290,12 @@ function createFileItem(file, index, listType) {
     item.className = 'file-item';
     item.dataset.index = index;
     item.dataset.listType = listType;
-    item.draggable = true;
+    
+    // Проверяем, редактируется ли этот файл
+    const isEditing = state.editingFileIndex === index && listType === 'batch';
+    
+    // Устанавливаем draggable только если не в режиме редактирования
+    item.draggable = !isEditing;
     
     const selectedSet = listType === 'target' || listType === 'batch' ? state.selectedTarget : state.selectedSource;
     if (selectedSet.has(index)) {
@@ -316,9 +321,6 @@ function createFileItem(file, index, listType) {
     
     const contentWrapper = document.createElement('div');
     contentWrapper.className = 'file-item-content';
-    
-    // Проверяем, редактируется ли этот файл
-    const isEditing = state.editingFileIndex === index && listType === 'batch';
     
     if (isEditing) {
         const editInput = document.createElement('input');
@@ -361,6 +363,16 @@ function createFileItem(file, index, listType) {
             }, 100);
         });
         
+        // Предотвращаем всплытие события клика, чтобы не срабатывала логика выбора файла
+        editInput.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+        
+        // Предотвращаем двойной клик
+        editInput.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+        });
+        
         contentWrapper.appendChild(editInput);
     } else {
         const nameSpan = document.createElement('span');
@@ -395,20 +407,28 @@ function createFileItem(file, index, listType) {
     
     item.appendChild(contentWrapper);
     
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'file-item-remove';
-    removeBtn.innerHTML = '−';
-    removeBtn.title = 'Исключить из обработки';
-    removeBtn.onclick = (e) => {
-        e.stopPropagation();
-        excludeFile(index, listType);
-    };
-    item.appendChild(removeBtn);
+    // Показываем кнопку удаления только если не в режиме редактирования
+    if (!isEditing) {
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'file-item-remove';
+        removeBtn.innerHTML = '−';
+        removeBtn.title = 'Исключить из обработки';
+        removeBtn.onclick = (e) => {
+            e.stopPropagation();
+            excludeFile(index, listType);
+        };
+        item.appendChild(removeBtn);
+    }
     
     item.addEventListener('click', (e) => handleFileClick(e, index, listType));
     item.addEventListener('contextmenu', (e) => handleFileContextMenu(e, index, listType));
-    item.addEventListener('dragstart', (e) => handleDragStart(e, index, listType));
-    item.addEventListener('dragend', (e) => handleDragEnd(e));
+    
+    // Добавляем обработчики drag только если не в режиме редактирования
+    if (!isEditing) {
+        item.addEventListener('dragstart', (e) => handleDragStart(e, index, listType));
+        item.addEventListener('dragend', (e) => handleDragEnd(e));
+    }
+    
     item.addEventListener('dragover', (e) => handleDragOver(e, index, listType));
     item.addEventListener('drop', (e) => handleDrop(e, index, listType));
     
@@ -472,6 +492,8 @@ function saveManualRename(index, newName, originalName) {
     
     state.editingFileIndex = null;
     renderBatchList();
+    
+    // Обязательно обновляем предпросмотр, чтобы активировать кнопку
     updatePreview();
 }
 
@@ -484,7 +506,13 @@ function handleFileClick(e, index, listType) {
     
     // Если в режиме редактирования и клик по другому файлу
     if (state.editingFileIndex !== null && state.editingFileIndex !== index) {
-        cancelEdit();
+        const editInput = document.querySelector('.file-item-edit-input');
+        if (editInput) {
+            const originalName = editInput.dataset.originalName;
+            saveManualRename(state.editingFileIndex, editInput.value, originalName);
+        } else {
+            cancelEdit();
+        }
     }
     
     const selectedSet = listType === 'target' || listType === 'batch' ? state.selectedTarget : state.selectedSource;
@@ -533,6 +561,12 @@ function handleFileClick(e, index, listType) {
 
 // ========== DRAG AND DROP ==========
 function handleDragStart(e, index, listType) {
+    // Не начинаем перетаскивание, если в режиме редактирования
+    if (state.editingFileIndex !== null) {
+        e.preventDefault();
+        return;
+    }
+    
     const selectedSet = listType === 'target' || listType === 'batch' ? state.selectedTarget : state.selectedSource;
     
     if (!selectedSet.has(index)) {
